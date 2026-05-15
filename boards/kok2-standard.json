@@ -1,0 +1,65 @@
+{
+  "id": "kok2-standard",
+  "name": "Keer op Keer 2 — Standard",
+  "version": 1,
+  "grid": {
+    "columns": ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"],
+    "rows": ["P","Q","R","S","T","U","V"],
+    "startColumns": ["H"]
+  },
+  "scoring": {
+    "columnBonuses": {
+      "A": { "first": 5, "subsequent": 3 },
+      "B": { "first": 3, "subsequent": 2 },
+      "C": { "first": 3, "subsequent": 2 },
+      "D": { "first": 3, "subsequent": 2 },
+      "E": { "first": 2, "subsequent": 1 },
+      "F": { "first": 2, "subsequent": 1 },
+      "G": { "first": 2, "subsequent": 1 },
+      "H": { "first": 2, "subsequent": 0 },
+      "I": { "first": 2, "subsequent": 1 },
+      "J": { "first": 2, "subsequent": 1 },
+      "K": { "first": 2, "subsequent": 1 },
+      "L": { "first": 3, "subsequent": 2 },
+      "M": { "first": 3, "subsequent": 2 },
+      "N": { "first": 3, "subsequent": 2 },
+      "O": { "first": 5, "subsequent": 3 }
+    },
+    "rowBonuses": {
+      "P": 5,
+      "Q": 5,
+      "R": 5,
+      "S": 5,
+      "T": 5,
+      "U": 5,
+      "V": 5
+    },
+    "rowItems": {
+      "P": "box",
+      "Q": "bomb",
+      "R": "heart",
+      "S": "bomb",
+      "T": "box",
+      "U": "heart",
+      "V": "bomb"
+    },
+    "colorCompletion": {
+      "first": 5,
+      "subsequent": 3
+    },
+    "starPenalty": -2,
+    "gameEnd": {
+      "colorsCompleted": 2
+    },
+    "boxTrack": {
+      "size": 9,
+      "startingBoxes": 1
+    },
+    "heartTrack": {
+      "size": 5
+    }
+  },
+  "cells": {
+    "TODO": "replace this with the full cell map from OCR"
+  }
+}
