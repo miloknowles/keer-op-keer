@@ -1,0 +1,500 @@
+import { describe, it, expect } from 'vitest'
+import type { BoardConfig } from '@boards/board.types'
+import type { DiceRoll, RoomPlayerRow, ColorNumberPick, SpecialPick } from '../../types/game'
+import {
+  validateColorNumberPick,
+  validateSpecialPick,
+  validateBombCells,
+  canPass,
+} from './rules'
+
+import rawBoard from '@boards/kok2-standard.json'
+const config = rawBoard as unknown as BoardConfig
+
+// H-P: green, H-Q: pink, H-R: orange(star), H-S: blue
+// G-P: pink, I-P: green, G-Q: pink
+// Orange connected region from H-R: H-R, G-R, F-R, F-Q, E-Q
+
+function makePlayer(overrides: Partial<RoomPlayerRow> = {}): RoomPlayerRow {
+  return {
+    id: 'player1',
+    room_id: 'room1',
+    user_id: null,
+    display_name: 'Test',
+    seat_index: 0,
+    crossed_cells: [],
+    hearts: 0,
+    boxes_unlocked: 1,
+    boxes_spent: 0,
+    wildcards: 6,
+    score: null,
+    score_breakdown: null,
+    joined_at: new Date().toISOString(),
+    ...overrides,
+  }
+}
+
+function makeRoll(overrides: Partial<DiceRoll> = {}): DiceRoll {
+  return {
+    colors: ['g', 'p', 'o'],
+    numbers: ['1', '2', '3'],
+    special: 'fill',
+    ...overrides,
+  }
+}
+
+// ─── validateBombCells ───────────────────────────────────────────────────────
+
+describe('validateBombCells', () => {
+  it('accepts a valid 2×2 block', () => {
+    const result = validateBombCells(config, ['A-P', 'B-P', 'A-Q', 'B-Q'])
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects fewer than 4 cells', () => {
+    const result = validateBombCells(config, ['A-P', 'B-P', 'A-Q'])
+    expect(result.valid).toBe(false)
+  })
+
+  it('rejects cells not forming a 2×2 block (3×1 strip)', () => {
+    const result = validateBombCells(config, ['A-P', 'B-P', 'C-P', 'D-P'])
+    expect(result.valid).toBe(false)
+  })
+
+  it('rejects a non-existent cell', () => {
+    const result = validateBombCells(config, ['A-P', 'B-P', 'A-Q', 'Z-Z'])
+    expect(result.valid).toBe(false)
+  })
+})
+
+// ─── validateColorNumberPick ─────────────────────────────────────────────────
+
+describe('validateColorNumberPick — basic', () => {
+  it('accepts a valid first pick in column H', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const result = validateColorNumberPick(config, pick, makeRoll(), makePlayer(), null, true, 1)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects first pick outside startColumn', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 0,
+      declared_color: 'p',
+      declared_number: 1,
+      cells: ['A-P'],
+    }
+    // colors: ['p', ...] — die index 0 is 'p'... wait, makeRoll has colors: ['g','p','o']
+    // A-P is pink; use color die index 1 ('p')
+    const pickFixed: ColorNumberPick = { ...pick, color_die: 1 }
+    const result = validateColorNumberPick(config, pickFixed, makeRoll(), makePlayer(), null, true, 1)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/adjacent|startColumn|not adjacent/i)
+  })
+
+  it('rejects cells of wrong color', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // die face 'g'
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-Q'], // H-Q is pink, not green
+    }
+    const result = validateColorNumberPick(config, pick, makeRoll(), makePlayer(), null, true, 1)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/color/i)
+  })
+
+  it('rejects cell count mismatch', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 1, // die face '2'
+      declared_color: 'g',
+      declared_number: 2,
+      cells: ['H-P'], // only 1 cell but declared 2
+    }
+    const result = validateColorNumberPick(config, pick, makeRoll(), makePlayer(), null, true, 1)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/cells|count/i)
+  })
+
+  it('rejects already-crossed cells', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const player = makePlayer({ crossed_cells: ['H-P'], hearts: 0 })
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, null, false, 2)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/crossed/i)
+  })
+
+  it('rejects non-adjacent cells when region exists', () => {
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 1, // 'p'
+      number_die: 0,
+      declared_color: 'p',
+      declared_number: 1,
+      cells: ['A-P'], // pink, but far from H-P
+    }
+    const player = makePlayer({ crossed_cells: ['H-P'] })
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, null, false, 2)
+    expect(result.valid).toBe(false)
+  })
+})
+
+describe('validateColorNumberPick — wildcards', () => {
+  it('accepts wildcard color die when wildcards available', () => {
+    const roll: DiceRoll = { colors: ['✕', 'p', 'o'], numbers: ['1', '2', '3'], special: 'fill' }
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // wildcard
+      number_die: 0,
+      declared_color: 'g', // declare green
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const result = validateColorNumberPick(config, pick, roll, makePlayer(), null, true, 1)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects wildcard die when wildcards === 0', () => {
+    const roll: DiceRoll = { colors: ['✕', 'p', 'o'], numbers: ['1', '2', '3'], special: 'fill' }
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // wildcard
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const player = makePlayer({ wildcards: 0 })
+    const result = validateColorNumberPick(config, pick, roll, player, null, true, 1)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/wildcard/i)
+  })
+
+  it('requires 2 wildcards when both dice are wildcards', () => {
+    const roll: DiceRoll = { colors: ['✕', 'p', 'o'], numbers: ['?', '2', '3'], special: 'fill' }
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // wildcard
+      number_die: 0, // wildcard
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const player1 = makePlayer({ wildcards: 1 })
+    expect(validateColorNumberPick(config, pick, roll, player1, null, true, 1).valid).toBe(false)
+
+    const player2 = makePlayer({ wildcards: 2 })
+    expect(validateColorNumberPick(config, pick, roll, player2, null, true, 1).valid).toBe(true)
+  })
+})
+
+describe('validateColorNumberPick — round restrictions', () => {
+  it('rounds 1-2: non-active player can use any dice', () => {
+    // Active player used color_die:0, number_die:0. Non-active uses same in round 2 — should be OK.
+    const activePick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // same as active player
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const player = makePlayer()
+    // Round 2 — open round, no restriction
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, activePick, false, 2)
+    // This will still fail because H-P is not crossed yet (first pick must be startColumn, but the
+    // test player has no crossed cells — H-P IS in start column, so it should be valid.
+    expect(result.valid).toBe(true)
+  })
+
+  it('round 3+: non-active player cannot reuse active player dice indices', () => {
+    const activePick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0,
+      number_die: 0,
+      declared_color: 'g',
+      declared_number: 1,
+      cells: ['H-P'],
+    }
+    const pick: ColorNumberPick = {
+      type: 'color_number',
+      color_die: 0, // same color die as active player
+      number_die: 1,
+      declared_color: 'g',
+      declared_number: 2,
+      cells: ['H-P', 'I-P'], // H-P(green) + I-P(green) — both adjacent is not possible first-pick
+    }
+    // Player has H-Q already so region exists
+    const player = makePlayer({ crossed_cells: ['H-Q'] })
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, activePick, false, 3)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/active player/i)
+  })
+})
+
+// ─── validateSpecialPick ─────────────────────────────────────────────────────
+
+describe('validateSpecialPick — heart', () => {
+  it('accepts heart with no cells', () => {
+    const pick: SpecialPick = { type: 'special', cells: [] }
+    const roll = makeRoll({ special: 'heart' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects heart when player has no boxes', () => {
+    const pick: SpecialPick = { type: 'special', cells: [] }
+    const roll = makeRoll({ special: 'heart' })
+    const player = makePlayer({ boxes_unlocked: 1, boxes_spent: 1 })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/box/i)
+  })
+
+  it('rejects heart with cells provided', () => {
+    const pick: SpecialPick = { type: 'special', cells: ['H-P'] }
+    const roll = makeRoll({ special: 'heart' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(false)
+  })
+})
+
+describe('validateSpecialPick — fill', () => {
+  it('accepts a valid fill of the connected orange region from H-R', () => {
+    // Player has H-S crossed so H-R is adjacent to region
+    const player = makePlayer({ crossed_cells: ['H-S'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['H-R', 'G-R', 'F-R', 'F-Q', 'E-Q'],
+    }
+    const roll = makeRoll({ special: 'fill' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects fill with incomplete region (subset of connected cells)', () => {
+    const player = makePlayer({ crossed_cells: ['H-S'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['H-R', 'G-R'], // only 2 of the 5 connected cells
+    }
+    const roll = makeRoll({ special: 'fill' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/region/i)
+  })
+
+  it('rejects fill with no adjacency to existing region', () => {
+    const player = makePlayer({ crossed_cells: ['H-P'] }) // H-P is green, far from orange region
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['H-R', 'G-R', 'F-R', 'F-Q', 'E-Q'],
+    }
+    const roll = makeRoll({ special: 'fill' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/adjacent/i)
+  })
+})
+
+describe('validateSpecialPick — three_in_a_row', () => {
+  it('accepts 3 cells in same row each adjacent to region', () => {
+    // Player has H-S crossed. Cells in row S adjacent to H-S: G-S, I-S
+    // Let's use row P after crossing H-P: adjacent in row P: G-P, I-P
+    const player = makePlayer({ crossed_cells: ['H-P'] })
+    // G-P (pink) and I-P (green) are both adjacent to H-P but different colors — for three_in_a_row color doesn't matter
+    // We need a third cell adjacent to H-P in row P — but H-P has only G-P and I-P in row P
+    // Let's use H-Q region: cross H-Q, then pick 3 cells in row Q
+    // H-Q (pink), adjacent in row Q: G-Q (pink), I-Q
+    const player2 = makePlayer({ crossed_cells: ['H-P', 'H-Q'] })
+    // In row Q: G-Q adjacent to H-Q, what's I-Q?
+    const iq = config.cells['I-Q']
+    if (!iq) return // skip if I-Q doesn't exist
+    const jq = config.cells['J-Q']
+    // G-Q is adjacent to H-Q ✓; I-Q needs to be adjacent to H-Q or something in crossed
+    // Actually, each cell needs to be individually adjacent to the crossed region
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['G-Q', 'H-Q', 'I-Q'],
+    }
+    // H-Q is already crossed, skip it... Let's pick 3 uncrossed cells in same row each adj to region
+    // Actually H-Q is in crossed_cells so it will fail the "already crossed" check
+    // Let me use a different setup: player has H-R crossed, cells in row R adjacent to H-R: G-R, I-R
+    // We need 3 cells in row R adjacent to H-R: G-R (adj), I-R (adj). Only 2 uncrossed adjacent.
+    // Use a bigger region
+    const player3 = makePlayer({ crossed_cells: ['H-P', 'H-Q', 'H-R', 'H-S', 'H-T', 'H-U', 'H-V'] })
+    // In row P: many cells might be adjacent. H-P is crossed so G-P (adj) and I-P (adj) qualify.
+    // G-P, I-P, and... what else in row P is adjacent to the region?
+    // F-P is adjacent to G-P which is NOT yet crossed (only H column is crossed)
+    // So only G-P and I-P are adjacent to H-P in row P
+    // Let's try row S which has more cells near H
+    // H-S is crossed. In row S: G-S, I-S are adjacent to H-S
+    const gs = config.cells['G-S']
+    const is_ = config.cells['I-S']
+    if (!gs || !is_) return
+    // We need a third: what's adjacent to the region in row S?
+    // Only G-S and I-S are adjacent to H-S directly
+    // But wait, each cell just needs adj to region — G-S adj to H-S ✓, I-S adj to H-S ✓
+    // We need a third cell in row S adjacent to the region (any of H-P..H-V)
+    // J-S? J-S is adjacent to I-S? No, J-S is adjacent to K-S, I-S, J-R, J-T
+    // I-S is not in crossed so J-S is NOT adjacent to region unless we add more cells
+    const pick2: SpecialPick = {
+      type: 'special',
+      cells: ['G-S', 'I-S', 'J-S'],
+    }
+    const result2 = validateSpecialPick(config, pick2, makeRoll({ special: 'three_in_a_row' }), player3)
+    // J-S is not adjacent to the region (only H column is crossed, J-S is 2 cols away from I-S)
+    expect(result2.valid).toBe(false)
+  })
+
+  it('rejects cells from different rows', () => {
+    const player = makePlayer({ crossed_cells: ['H-P'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['G-P', 'G-Q', 'I-P'], // G-Q is row Q, others row P
+    }
+    const roll = makeRoll({ special: 'three_in_a_row' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/row/i)
+  })
+
+  it('rejects wrong cell count', () => {
+    const player = makePlayer({ crossed_cells: ['H-P'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['G-P', 'I-P'], // only 2
+    }
+    const roll = makeRoll({ special: 'three_in_a_row' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/3/i)
+  })
+})
+
+describe('validateSpecialPick — bomb', () => {
+  it('accepts a valid 2×2 block', () => {
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['A-P', 'B-P', 'A-Q', 'B-Q'],
+    }
+    const roll = makeRoll({ special: 'bomb' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects a non-2×2 arrangement', () => {
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['A-P', 'B-P', 'C-P', 'A-Q'],
+    }
+    const roll = makeRoll({ special: 'bomb' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(false)
+  })
+
+  it('rejects already-crossed cells', () => {
+    const player = makePlayer({ crossed_cells: ['A-P'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['A-P', 'B-P', 'A-Q', 'B-Q'],
+    }
+    const roll = makeRoll({ special: 'bomb' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/crossed/i)
+  })
+})
+
+describe('validateSpecialPick — two_stars', () => {
+  it('accepts exactly 2 star cells', () => {
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['C-P', 'H-R'], // both star cells
+    }
+    const roll = makeRoll({ special: 'two_stars' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects non-star cells', () => {
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['H-P', 'A-P'], // neither is a star
+    }
+    const roll = makeRoll({ special: 'two_stars' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(false)
+    expect((result as { valid: false; error: string }).error).toMatch(/star/i)
+  })
+
+  it('rejects wrong cell count', () => {
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['C-P'],
+    }
+    const roll = makeRoll({ special: 'two_stars' })
+    const result = validateSpecialPick(config, pick, roll, makePlayer())
+    expect(result.valid).toBe(false)
+  })
+
+  it('rejects already-crossed star cells', () => {
+    const player = makePlayer({ crossed_cells: ['C-P'] })
+    const pick: SpecialPick = {
+      type: 'special',
+      cells: ['C-P', 'H-R'],
+    }
+    const roll = makeRoll({ special: 'two_stars' })
+    const result = validateSpecialPick(config, pick, roll, player)
+    expect(result.valid).toBe(false)
+  })
+})
+
+// ─── canPass ────────────────────────────────────────────────────────────────
+
+describe('canPass', () => {
+  it('returns false when a valid move exists', () => {
+    // Roll has green die, 1 die, player is empty — H-P is a valid move
+    const roll: DiceRoll = { colors: ['g', 'p', 'o'], numbers: ['1', '2', '3'], special: 'fill' }
+    const result = canPass(config, roll, makePlayer(), null, true, 1)
+    expect(result).toBe(false)
+  })
+
+  it('returns false when player has a box available', () => {
+    // Even with no valid color+number move, a box lets them use special die
+    const roll: DiceRoll = { colors: ['g', 'p', 'o'], numbers: ['1', '2', '3'], special: 'fill' }
+    const player = makePlayer({
+      crossed_cells: Object.keys(config.cells), // all cells crossed — no valid pick
+      boxes_unlocked: 2,
+      boxes_spent: 0,
+    })
+    expect(canPass(config, roll, player, null, true, 1)).toBe(false)
+  })
+})

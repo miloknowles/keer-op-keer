@@ -187,7 +187,7 @@ export interface ScoreBreakdown {
 
 ---
 
-## Phase 3 — Pure Game Logic
+## Phase 3 — Pure Game Logic ✓
 
 **Goal:** Write the stateless logic that both the server and client will use. No React, no Supabase — pure TypeScript functions. These are the most important functions to get right; everything else depends on them.
 

@@ -1,29 +1,101 @@
 {
   "id": "kok2-standard",
-  "name": "Keer op Keer 2 — Standard",
+  "name": "Keer op Keer 2 \u2014 Standard",
   "version": 1,
   "grid": {
-    "columns": ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"],
-    "rows": ["P","Q","R","S","T","U","V"],
-    "startColumns": ["H"]
+    "columns": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O"
+    ],
+    "rows": [
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V"
+    ],
+    "startColumns": [
+      "H"
+    ]
   },
   "scoring": {
     "columnBonuses": {
-      "A": { "first": 5, "subsequent": 3 },
-      "B": { "first": 3, "subsequent": 2 },
-      "C": { "first": 3, "subsequent": 2 },
-      "D": { "first": 3, "subsequent": 2 },
-      "E": { "first": 2, "subsequent": 1 },
-      "F": { "first": 2, "subsequent": 1 },
-      "G": { "first": 2, "subsequent": 1 },
-      "H": { "first": 2, "subsequent": 0, "_note": "awards a box to every completer (first and subsequent); hardcoded in game logic" },
-      "I": { "first": 2, "subsequent": 1 },
-      "J": { "first": 2, "subsequent": 1 },
-      "K": { "first": 2, "subsequent": 1 },
-      "L": { "first": 3, "subsequent": 2 },
-      "M": { "first": 3, "subsequent": 2 },
-      "N": { "first": 3, "subsequent": 2 },
-      "O": { "first": 5, "subsequent": 3 }
+      "A": {
+        "first": 5,
+        "subsequent": 3
+      },
+      "B": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "C": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "D": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "E": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "F": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "G": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "H": {
+        "first": 2,
+        "subsequent": 0,
+        "_note": "awards a box to every completer (first and subsequent); hardcoded in game logic"
+      },
+      "I": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "J": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "K": {
+        "first": 2,
+        "subsequent": 1
+      },
+      "L": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "M": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "N": {
+        "first": 3,
+        "subsequent": 2
+      },
+      "O": {
+        "first": 5,
+        "subsequent": 3
+      }
     },
     "rowBonuses": {
       "P": 5,
@@ -63,116 +135,337 @@
     }
   },
   "cells": {
-    "A-P": { "color": "p" },
-    "B-P": { "color": "p" },
-    "C-P": { "color": "o", "star": true },
-    "D-P": { "color": "y" },
-    "E-P": { "color": "y" },
-    "F-P": { "color": "p", "star": true },
-    "G-P": { "color": "p" },
-    "H-P": { "color": "g" },
-    "I-P": { "color": "g" },
-    "J-P": { "color": "y" },
-    "K-P": { "color": "y" },
-    "L-P": { "color": "o", "star": true },
-    "M-P": { "color": "o" },
-    "N-P": { "color": "o" },
-    "O-P": { "color": "b" },
-
-    "A-Q": { "color": "b" },
-    "B-Q": { "color": "y" },
-    "C-Q": { "color": "y" },
-    "D-Q": { "color": "y" },
-    "E-Q": { "color": "o" },
-    "F-Q": { "color": "o" },
-    "G-Q": { "color": "p" },
-    "H-Q": { "color": "p" },
-    "I-Q": { "color": "b" },
-    "J-Q": { "color": "b", "star": true },
-    "K-Q": { "color": "y" },
-    "L-Q": { "color": "y" },
-    "M-Q": { "color": "p" },
-    "N-Q": { "color": "o" },
-    "O-Q": { "color": "o" },
-
-    "A-R": { "color": "b" },
-    "B-R": { "color": "y", "box": true },
-    "C-R": { "color": "b" },
-    "D-R": { "color": "b" },
-    "E-R": { "color": "b" },
-    "F-R": { "color": "o" },
-    "G-R": { "color": "o" },
-    "H-R": { "color": "o", "star": true },
-    "I-R": { "color": "b" },
-    "J-R": { "color": "g" },
-    "K-R": { "color": "g" },
-    "L-R": { "color": "y" },
-    "M-R": { "color": "p" },
-    "N-R": { "color": "p" },
-    "O-R": { "color": "o", "box": true },
-
-    "A-S": { "color": "o" },
-    "B-S": { "color": "b", "star": true },
-    "C-S": { "color": "b" },
-    "D-S": { "color": "g", "star": true },
-    "E-S": { "color": "b", "box": true },
-    "F-S": { "color": "y" },
-    "G-S": { "color": "y" },
-    "H-S": { "color": "b" },
-    "I-S": { "color": "o" },
-    "J-S": { "color": "o" },
-    "K-S": { "color": "g" },
-    "L-S": { "color": "g" },
-    "M-S": { "color": "g", "star": true },
-    "N-S": { "color": "p" },
-    "O-S": { "color": "p" },
-
-    "A-T": { "color": "o" },
-    "B-T": { "color": "o" },
-    "C-T": { "color": "p" },
-    "D-T": { "color": "p" },
-    "E-T": { "color": "g" },
-    "F-T": { "color": "b" },
-    "G-T": { "color": "b" },
-    "H-T": { "color": "b" },
-    "I-T": { "color": "y" },
-    "J-T": { "color": "o" },
-    "K-T": { "color": "o" },
-    "L-T": { "color": "p", "box": true },
-    "M-T": { "color": "y" },
-    "N-T": { "color": "y" },
-    "O-T": { "color": "y" },
-
-    "A-U": { "color": "g" },
-    "B-U": { "color": "g" },
-    "C-U": { "color": "p" },
-    "D-U": { "color": "o" },
-    "E-U": { "color": "g" },
-    "F-U": { "color": "g" },
-    "G-U": { "color": "g", "star": true },
-    "H-U": { "color": "y" },
-    "I-U": { "color": "y" },
-    "J-U": { "color": "p" },
-    "K-U": { "color": "p" },
-    "L-U": { "color": "p" },
-    "M-U": { "color": "b" },
-    "N-U": { "color": "b", "star": true },
-    "O-U": { "color": "g" },
-
-    "A-V": { "color": "y" },
-    "B-V": { "color": "g" },
-    "C-V": { "color": "g" },
-    "D-V": { "color": "o" },
-    "E-V": { "color": "p", "star": true },
-    "F-V": { "color": "g", "box": true },
-    "G-V": { "color": "g" },
-    "H-V": { "color": "y" },
-    "I-V": { "color": "p", "star": true },
-    "J-V": { "color": "p" },
-    "K-V": { "color": "b" },
-    "L-V": { "color": "b" },
-    "M-V": { "color": "b" },
-    "N-V": { "color": "g" },
-    "O-V": { "color": "g" }
+    "A-P": {
+      "color": "p"
+    },
+    "B-P": {
+      "color": "p"
+    },
+    "C-P": {
+      "color": "o",
+      "special": "star"
+    },
+    "D-P": {
+      "color": "y"
+    },
+    "E-P": {
+      "color": "y"
+    },
+    "F-P": {
+      "color": "p",
+      "special": "star"
+    },
+    "G-P": {
+      "color": "p"
+    },
+    "H-P": {
+      "color": "g"
+    },
+    "I-P": {
+      "color": "g"
+    },
+    "J-P": {
+      "color": "y"
+    },
+    "K-P": {
+      "color": "y"
+    },
+    "L-P": {
+      "color": "o",
+      "special": "star"
+    },
+    "M-P": {
+      "color": "o"
+    },
+    "N-P": {
+      "color": "o"
+    },
+    "O-P": {
+      "color": "b"
+    },
+    "A-Q": {
+      "color": "b"
+    },
+    "B-Q": {
+      "color": "y"
+    },
+    "C-Q": {
+      "color": "y"
+    },
+    "D-Q": {
+      "color": "y"
+    },
+    "E-Q": {
+      "color": "o"
+    },
+    "F-Q": {
+      "color": "o"
+    },
+    "G-Q": {
+      "color": "p"
+    },
+    "H-Q": {
+      "color": "p"
+    },
+    "I-Q": {
+      "color": "b"
+    },
+    "J-Q": {
+      "color": "b",
+      "special": "star"
+    },
+    "K-Q": {
+      "color": "y"
+    },
+    "L-Q": {
+      "color": "y"
+    },
+    "M-Q": {
+      "color": "p"
+    },
+    "N-Q": {
+      "color": "o"
+    },
+    "O-Q": {
+      "color": "o"
+    },
+    "A-R": {
+      "color": "b"
+    },
+    "B-R": {
+      "color": "y",
+      "special": "box"
+    },
+    "C-R": {
+      "color": "b"
+    },
+    "D-R": {
+      "color": "b"
+    },
+    "E-R": {
+      "color": "b"
+    },
+    "F-R": {
+      "color": "o"
+    },
+    "G-R": {
+      "color": "o"
+    },
+    "H-R": {
+      "color": "o",
+      "special": "star"
+    },
+    "I-R": {
+      "color": "b"
+    },
+    "J-R": {
+      "color": "g"
+    },
+    "K-R": {
+      "color": "g"
+    },
+    "L-R": {
+      "color": "y"
+    },
+    "M-R": {
+      "color": "p"
+    },
+    "N-R": {
+      "color": "p"
+    },
+    "O-R": {
+      "color": "o",
+      "special": "box"
+    },
+    "A-S": {
+      "color": "o"
+    },
+    "B-S": {
+      "color": "b",
+      "special": "star"
+    },
+    "C-S": {
+      "color": "b"
+    },
+    "D-S": {
+      "color": "g",
+      "special": "star"
+    },
+    "E-S": {
+      "color": "b",
+      "special": "box"
+    },
+    "F-S": {
+      "color": "y"
+    },
+    "G-S": {
+      "color": "y"
+    },
+    "H-S": {
+      "color": "b"
+    },
+    "I-S": {
+      "color": "o"
+    },
+    "J-S": {
+      "color": "o"
+    },
+    "K-S": {
+      "color": "g"
+    },
+    "L-S": {
+      "color": "g"
+    },
+    "M-S": {
+      "color": "g",
+      "special": "star"
+    },
+    "N-S": {
+      "color": "p"
+    },
+    "O-S": {
+      "color": "p"
+    },
+    "A-T": {
+      "color": "o"
+    },
+    "B-T": {
+      "color": "o"
+    },
+    "C-T": {
+      "color": "p"
+    },
+    "D-T": {
+      "color": "p"
+    },
+    "E-T": {
+      "color": "g"
+    },
+    "F-T": {
+      "color": "b"
+    },
+    "G-T": {
+      "color": "b"
+    },
+    "H-T": {
+      "color": "b"
+    },
+    "I-T": {
+      "color": "y"
+    },
+    "J-T": {
+      "color": "o"
+    },
+    "K-T": {
+      "color": "o"
+    },
+    "L-T": {
+      "color": "p",
+      "special": "box"
+    },
+    "M-T": {
+      "color": "y"
+    },
+    "N-T": {
+      "color": "y"
+    },
+    "O-T": {
+      "color": "y"
+    },
+    "A-U": {
+      "color": "g"
+    },
+    "B-U": {
+      "color": "g"
+    },
+    "C-U": {
+      "color": "p"
+    },
+    "D-U": {
+      "color": "o"
+    },
+    "E-U": {
+      "color": "g"
+    },
+    "F-U": {
+      "color": "g"
+    },
+    "G-U": {
+      "color": "g",
+      "special": "star"
+    },
+    "H-U": {
+      "color": "y"
+    },
+    "I-U": {
+      "color": "y"
+    },
+    "J-U": {
+      "color": "p"
+    },
+    "K-U": {
+      "color": "p"
+    },
+    "L-U": {
+      "color": "p"
+    },
+    "M-U": {
+      "color": "b"
+    },
+    "N-U": {
+      "color": "b",
+      "special": "star"
+    },
+    "O-U": {
+      "color": "g"
+    },
+    "A-V": {
+      "color": "y"
+    },
+    "B-V": {
+      "color": "g"
+    },
+    "C-V": {
+      "color": "g"
+    },
+    "D-V": {
+      "color": "o"
+    },
+    "E-V": {
+      "color": "p",
+      "special": "star"
+    },
+    "F-V": {
+      "color": "g",
+      "special": "box"
+    },
+    "G-V": {
+      "color": "g"
+    },
+    "H-V": {
+      "color": "y"
+    },
+    "I-V": {
+      "color": "p",
+      "special": "star"
+    },
+    "J-V": {
+      "color": "p"
+    },
+    "K-V": {
+      "color": "b"
+    },
+    "L-V": {
+      "color": "b"
+    },
+    "M-V": {
+      "color": "b"
+    },
+    "N-V": {
+      "color": "g"
+    },
+    "O-V": {
+      "color": "g"
+    }
   }
 }
