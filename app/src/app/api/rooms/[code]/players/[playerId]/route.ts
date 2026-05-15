@@ -16,7 +16,7 @@ export async function DELETE(
     .select('id, status, host_id')
     .eq('code', code.toLowerCase())
     .maybeSingle()
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+  if (!room) return NextResponse.json({ error: 'Room not found. Make sure your code is valid.' }, { status: 404 })
   if (room.status !== 'lobby') {
     return NextResponse.json({ error: 'Can only kick players in the lobby' }, { status: 409 })
   }

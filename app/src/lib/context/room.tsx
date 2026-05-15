@@ -173,7 +173,7 @@ export function RoomProvider({
   if (loadError || !room || !board || !me) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-screen bg-gray-200">
-        <p className="text-gray-500 font-medium">{loadError ?? 'Room not found'}</p>
+        <p className="text-gray-500 font-medium">{loadError ?? 'Room not found. Make sure your code is valid.'}</p>
       </div>
     )
   }

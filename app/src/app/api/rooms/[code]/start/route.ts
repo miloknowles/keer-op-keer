@@ -16,7 +16,7 @@ export async function POST(
     .select('id, status, host_id')
     .eq('code', code.toLowerCase())
     .maybeSingle()
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+  if (!room) return NextResponse.json({ error: 'Room not found. Make sure your code is valid.' }, { status: 404 })
   if (room.status !== 'lobby') {
     return NextResponse.json({ error: 'Game already started' }, { status: 409 })
   }

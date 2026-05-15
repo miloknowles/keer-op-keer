@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { TriangleAlertIcon } from "lucide-react";
 import { generateRandomName, NAME_KEY } from "@/lib/utils";
 
 const ROWS = [
@@ -35,6 +36,7 @@ export default function Home() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   async function handleNewGame() {
     const display_name = getOrGenerateName();
@@ -57,9 +59,10 @@ export default function Home() {
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     const trimmedCode = code.trim().toLowerCase();
-    if (!trimmedCode) { toast.error("Enter a room code"); return; }
+    if (!trimmedCode) { setJoinError("Enter a room code"); return; }
     const display_name = getOrGenerateName();
     setLoading(true);
+    setJoinError(null);
     try {
       const res = await fetch(`/api/rooms/${trimmedCode}/join`, {
         method: "POST",
@@ -70,7 +73,7 @@ export default function Home() {
       if (!res.ok) throw new Error(body.error ?? "Something went wrong");
       router.push(`/room/${trimmedCode}/lobby`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      setJoinError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
     }
   }
@@ -114,22 +117,31 @@ export default function Home() {
 
         <p className="text-gray-500 text-sm font-medium">or</p>
 
-        <form onSubmit={handleJoin} className="flex gap-2">
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter code"
-            maxLength={12}
-            className="w-44 rounded-xl border-2 border-white/60 bg-white/70 px-4 py-3 text-center font-bold text-gray-700 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 shadow-sm outline-none focus:border-blue-400 focus:bg-white transition-all"
-          />
-          <button
-            type="submit"
-            disabled={loading || !code.trim()}
-            className="bg-kok-blue hover:brightness-110 active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl uppercase px-6 py-3 rounded-xl shadow-md transition-all select-none"
-          >
-            {loading ? <Spinner /> : "Join"}
-          </button>
+        <form onSubmit={handleJoin} className="flex flex-col items-center gap-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => { setCode(e.target.value); setJoinError(null); }}
+              placeholder="Enter code"
+              maxLength={12}
+              className="w-44 rounded-xl border-2 border-white/60 bg-white/70 px-4 py-3 text-center font-bold text-gray-700 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 shadow-sm outline-none focus:border-blue-400 focus:bg-white transition-all"
+            />
+            <button
+              type="submit"
+              disabled={loading || !code.trim()}
+              className="bg-kok-blue hover:brightness-110 active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl uppercase px-6 py-3 rounded-xl shadow-md transition-all select-none"
+            >
+              {loading ? <Spinner /> : "Join"}
+            </button>
+          </div>
+
+          {joinError && (
+            <div className="flex items-center gap-2 bg-kok-pink rounded-xl px-4 py-2.5 shadow-sm text-white text-sm font-medium">
+              <TriangleAlertIcon className="size-4 shrink-0" />
+              {joinError}
+            </div>
+          )}
         </form>
       </div>
 
