@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { generateRandomName, NAME_KEY } from "@/lib/utils";
 
 const ROWS = [
@@ -33,12 +35,10 @@ export default function Home() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleNewGame() {
     const display_name = getOrGenerateName();
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/rooms", {
         method: "POST",
@@ -49,7 +49,7 @@ export default function Home() {
       if (!res.ok) throw new Error(body.error ?? "Something went wrong");
       router.push(`/room/${body.code}/lobby`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
     }
   }
@@ -57,10 +57,9 @@ export default function Home() {
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     const trimmedCode = code.trim().toLowerCase();
-    if (!trimmedCode) { setError("Enter a room code"); return; }
+    if (!trimmedCode) { toast.error("Enter a room code"); return; }
     const display_name = getOrGenerateName();
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch(`/api/rooms/${trimmedCode}/join`, {
         method: "POST",
@@ -71,7 +70,7 @@ export default function Home() {
       if (!res.ok) throw new Error(body.error ?? "Something went wrong");
       router.push(`/room/${trimmedCode}/lobby`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
     }
   }
@@ -110,7 +109,7 @@ export default function Home() {
           disabled={loading}
           className="bg-kok-orange hover:brightness-110 hover:-translate-y-1 hover:shadow-lg active:translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-xl uppercase px-14 py-3.5 rounded-xl shadow-md transition-all select-none"
         >
-          {loading ? "…" : "New game"}
+          {loading ? <Spinner className="size-5" /> : "New game"}
         </button>
 
         <p className="text-gray-500 text-sm font-medium">or</p>
@@ -120,7 +119,7 @@ export default function Home() {
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter room code"
+            placeholder="Enter code"
             maxLength={12}
             className="w-44 rounded-xl border-2 border-white/60 bg-white/70 px-4 py-3 text-center font-bold text-gray-700 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 shadow-sm outline-none focus:border-blue-400 focus:bg-white transition-all"
           />
@@ -129,11 +128,9 @@ export default function Home() {
             disabled={loading || !code.trim()}
             className="bg-kok-blue hover:brightness-110 active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl uppercase px-6 py-3 rounded-xl shadow-md transition-all select-none"
           >
-            Join
+            {loading ? <Spinner /> : "Join"}
           </button>
         </form>
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
       </div>
 
       <a
