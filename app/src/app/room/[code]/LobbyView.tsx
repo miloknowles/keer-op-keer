@@ -2,13 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Avatar from "boring-avatars";
 
-const PLAYER_COLORS = [
-  "bg-kok-pink",
-  "bg-kok-blue",
-  "bg-kok-yellow",
-  "bg-kok-green",
-  "bg-kok-orange",
+// Hex equivalents of the kok oklch colors, paired with white for duotone beam
+const SEAT_COLORS: [string, string][] = [
+  ["#E8437C", "#ffffff"], // pink
+  ["#4264D4", "#ffffff"], // blue
+  ["#E8C43A", "#ffffff"], // yellow
+  ["#2FAD50", "#ffffff"], // green
+  ["#E87820", "#ffffff"], // orange
 ];
 
 const INITIAL_PLAYERS = [
@@ -90,10 +92,13 @@ export function LobbyView({ code }: { code: string }) {
               key={player.id}
               className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm"
             >
-              <div
-                className={`${PLAYER_COLORS[player.seat_index % PLAYER_COLORS.length]} w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}
-              >
-                {player.display_name[0].toUpperCase()}
+              <div className="shrink-0 rounded-full overflow-hidden shadow-sm">
+                <Avatar
+                  name={player.display_name}
+                  variant="beam"
+                  size={36}
+                  colors={SEAT_COLORS[player.seat_index % SEAT_COLORS.length]}
+                />
               </div>
 
               {player.is_me && editingId === player.id ? (
@@ -104,7 +109,7 @@ export function LobbyView({ code }: { code: string }) {
                   onBlur={commitEdit}
                   onKeyDown={handleKeyDown}
                   maxLength={20}
-                  className="flex-1 font-semibold text-gray-800 bg-transparent border-b-2 border-kok-blue outline-none"
+                  className="flex-1 min-w-0 font-semibold text-gray-800 bg-transparent border-b-2 border-kok-blue outline-none"
                 />
               ) : (
                 <span
