@@ -233,6 +233,7 @@ State transitions:
 | Language | **TypeScript** | Strict mode |
 | Styling | **Tailwind CSS** | Utility-first |
 | Components | **shadcn/ui** | Accessible primitives |
+| Avatars | **boring-avatars** | Beam duotone avatars for player display |
 | Database | **Supabase** (PostgreSQL) | Game rooms, player state, scores |
 | Real-time | **Supabase Realtime** | Broadcast dice rolls, sync game state |
 | Auth | **Supabase Auth** | Anonymous or email; guest play supported |
