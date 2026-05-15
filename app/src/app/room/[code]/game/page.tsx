@@ -1,87 +1,64 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Avatar from 'boring-avatars'
+import { isRowComplete, isColumnComplete } from '@/lib/game/sheet'
 import { ScoreSheet } from '@/components/game/ScoreSheet'
 import { GameDice } from '@/components/game/GameDice'
 import { ResourceTracks } from '@/components/game/ResourceTracks'
 import { ChatWindow } from '@/components/game/ChatWindow'
 import { useRoomContext } from '@/lib/context/room'
-import type { DiceColorFace, DiceNumberFace, DiceSpecialFace, BoardConfig } from '@/types/game'
-import rawBoard from '@/lib/kok2-standard.json'
+import { createClient } from '@/lib/supabase/client'
+import type { DiceColorFace, DiceNumberFace, BoardConfig, RoomHistoryRow } from '@/types/game'
 
-const boardConfig = rawBoard as unknown as BoardConfig
-
-type MockPlayer = {
-  id: string
-  name: string
-  crossedCells: string[]
-  hearts: number
-  boxesUnlocked: number
-  boxesSpent: number
-  wildcards: number
-  score: number
-  isCurrentUser: boolean
-  isActive: boolean
-}
-
-const MOCK_PLAYERS: MockPlayer[] = [
-  {
-    id: '1',
-    name: 'Alice',
-    crossedCells: ['H-P', 'H-Q', 'H-R', 'G-R', 'I-R', 'H-S', 'H-T', 'G-Q', 'I-Q', 'G-S'],
-    hearts: 2,
-    boxesUnlocked: 2,
-    boxesSpent: 1,
-    wildcards: 5,
-    score: 12,
-    isCurrentUser: true,
-    isActive: true,
-  },
-  {
-    id: '2',
-    name: 'Bob',
-    crossedCells: ['H-P', 'H-Q', 'G-Q', 'I-Q', 'H-R', 'H-S'],
-    hearts: 1,
-    boxesUnlocked: 1,
-    boxesSpent: 0,
-    wildcards: 4,
-    score: 8,
-    isCurrentUser: false,
-    isActive: false,
-  },
-  {
-    id: '3',
-    name: 'Carol',
-    crossedCells: ['H-P', 'H-Q', 'H-R', 'I-R', 'I-S', 'I-T', 'J-T', 'K-T', 'H-S', 'I-Q', 'J-Q'],
-    hearts: 3,
-    boxesUnlocked: 3,
-    boxesSpent: 1,
-    wildcards: 3,
-    score: 15,
-    isCurrentUser: false,
-    isActive: false,
-  },
+const SEAT_COLORS: [string, string][] = [
+  ['#E8437C', '#ffffff'],
+  ['#4264D4', '#ffffff'],
+  ['#E8C43A', '#ffffff'],
+  ['#2FAD50', '#ffffff'],
+  ['#E87820', '#ffffff'],
 ]
 
-const MOCK_DICE = {
-  colors: ['p', 'g', 'b'] as [DiceColorFace, DiceColorFace, DiceColorFace],
-  numbers: ['3', '1', '?'] as [DiceNumberFace, DiceNumberFace, DiceNumberFace],
-  special: 'heart' as DiceSpecialFace,
-}
-
 export default function GamePage() {
-  const { room, me, players } = useRoomContext()
-  const [viewingId, setViewingId] = useState('1')
+  const { room, me, players, board } = useRoomContext()
+  const boardConfig = board.config as unknown as BoardConfig
+
+  const supabase = useRef(createClient()).current
+  const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(null)
+
+  const [viewingId, setViewingId] = useState(me.id)
   const [chatOpen, setChatOpen] = useState(false)
   const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>()
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>()
   const [selectedCells, setSelectedCells] = useState<string[]>([])
 
-  const viewing = MOCK_PLAYERS.find(p => p.id === viewingId)!
-  const mockMe = MOCK_PLAYERS.find(p => p.isCurrentUser)!
-  const isMyBoard = viewingId === mockMe.id
+  useEffect(() => {
+    supabase
+      .from('room_history')
+      .select('*')
+      .eq('room_id', room.id)
+      .eq('round_number', room.round_number)
+      .maybeSingle()
+      .then(({ data }) => setCurrentHistory(data ?? null))
+  }, [room.id, room.round_number]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dice = currentHistory ? {
+    colors: currentHistory.dice_colors as [DiceColorFace, DiceColorFace, DiceColorFace],
+    numbers: currentHistory.dice_numbers as [DiceNumberFace, DiceNumberFace, DiceNumberFace],
+    special: currentHistory.dice_special,
+  } : null
+
+  const viewing = players.find(p => p.id === viewingId) ?? players[0]
+  const isMyBoard = viewingId === me.id
+  const activePlayer = players.find(p => p.seat_index === room.current_player_index)
 
   const scoring = boardConfig.scoring
+  const { grid } = boardConfig
+
+  const myCompletedRows = grid.rows.filter(r => isRowComplete(boardConfig, r, viewing.crossed_cells))
+  const myCompletedCols = grid.columns.filter(c => isColumnComplete(boardConfig, c, viewing.crossed_cells))
+  const firstTakenRows = grid.rows.filter(r => players.some(p => isRowComplete(boardConfig, r, p.crossed_cells)))
+  const firstTakenCols = grid.columns.filter(c => players.some(p => isColumnComplete(boardConfig, c, p.crossed_cells)))
 
   function handleCellClick(key: string) {
     if (!isMyBoard) return
@@ -111,13 +88,13 @@ export default function GamePage() {
         <div className="flex items-center gap-3">
           <span className="font-black text-kok-orange tracking-wide uppercase">Keer op Keer 2</span>
           <span className="text-gray-300">|</span>
-          <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">XKQZ</span>
+          <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">{room.code.toUpperCase()}</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-gray-500">Round <span className="font-bold text-gray-800">5</span></span>
+          <span className="text-gray-500">Round <span className="font-bold text-gray-800">{room.round_number}</span></span>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-kok-green animate-pulse" />
-            <span className="font-medium text-kok-green">Alice's turn</span>
+            <span className="font-medium text-kok-green">{activePlayer?.display_name ?? '—'}'s turn</span>
           </div>
         </div>
       </header>
@@ -127,17 +104,23 @@ export default function GamePage() {
         <main className="flex-1 p-5 overflow-auto">
           {/* Player tabs */}
           <div className="flex gap-1.5 mb-4">
-            {MOCK_PLAYERS.map(p => (
+            {players.map(p => (
               <button
                 key={p.id}
                 onClick={() => setViewingId(p.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                   viewingId === p.id
                     ? 'bg-kok-blue text-white shadow-sm'
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                 }`}
               >
-                {p.name}{p.isCurrentUser && ' (you)'}
+                <Avatar
+                  name={p.display_name}
+                  variant="beam"
+                  size={20}
+                  colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
+                />
+                {p.display_name}{p.id === me.id && ' (you)'}
               </button>
             ))}
           </div>
@@ -147,9 +130,13 @@ export default function GamePage() {
             <div className="bg-white rounded-xl shadow-sm p-4">
               <ScoreSheet
                 config={boardConfig}
-                crossedCells={viewing.crossedCells}
+                crossedCells={viewing.crossed_cells}
                 selectedCells={isMyBoard ? selectedCells : []}
                 onCellClick={isMyBoard ? handleCellClick : undefined}
+                myCompletedRows={myCompletedRows}
+                myCompletedCols={myCompletedCols}
+                firstTakenRows={firstTakenRows}
+                firstTakenCols={firstTakenCols}
               />
             </div>
 
@@ -158,8 +145,8 @@ export default function GamePage() {
               <ResourceTracks
                 hearts={viewing.hearts}
                 heartSize={scoring.heartTrack.size}
-                boxesUnlocked={viewing.boxesUnlocked}
-                boxesSpent={viewing.boxesSpent}
+                boxesUnlocked={viewing.boxes_unlocked}
+                boxesSpent={viewing.boxes_spent}
                 boxSize={scoring.boxTrack.size}
                 wildcards={viewing.wildcards}
                 wildcardStart={scoring.wildcardTrack.starting}
@@ -174,38 +161,50 @@ export default function GamePage() {
           <div className="p-4 border-b border-gray-100">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Players</div>
             <div className="flex flex-col gap-1">
-              {MOCK_PLAYERS.map(p => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-sm ${
-                    p.isActive ? 'bg-kok-green/10 border border-kok-green/25' : 'bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.isActive ? 'bg-kok-green' : 'bg-gray-300'}`} />
-                    <span className="font-medium text-gray-800">
-                      {p.name}
-                      {p.isCurrentUser && <span className="text-gray-400 text-xs font-normal"> (you)</span>}
-                    </span>
+              {players.map(p => {
+                const isActive = p.seat_index === room.current_player_index
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-sm ${
+                      isActive ? 'bg-kok-green/10 border border-kok-green/25' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        name={p.display_name}
+                        variant="beam"
+                        size={24}
+                        colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
+                      />
+                      <span className="font-medium text-gray-800">
+                        {p.display_name}
+                        {p.id === me.id && <span className="text-gray-400 text-xs font-normal"> (you)</span>}
+                      </span>
+                    </div>
+                    <span className="font-bold text-gray-700 tabular-nums">{p.score ?? 0}</span>
                   </div>
-                  <span className="font-bold text-gray-700 tabular-nums">{p.score}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
           {/* Dice roll */}
           <div className="p-4 border-b border-gray-100">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Dice Roll</div>
-            <GameDice
-              colors={MOCK_DICE.colors}
-              numbers={MOCK_DICE.numbers}
-              special={MOCK_DICE.special}
-              selectedColor={isMyBoard ? selectedColor : undefined}
-              selectedNumber={isMyBoard ? selectedNumber : undefined}
-              onSelectColor={isMyBoard ? handleColorPick : undefined}
-              onSelectNumber={isMyBoard ? handleNumberPick : undefined}
-            />
+            {dice ? (
+              <GameDice
+                colors={dice.colors}
+                numbers={dice.numbers}
+                special={dice.special}
+                selectedColor={isMyBoard ? selectedColor : undefined}
+                selectedNumber={isMyBoard ? selectedNumber : undefined}
+                onSelectColor={isMyBoard ? handleColorPick : undefined}
+                onSelectNumber={isMyBoard ? handleNumberPick : undefined}
+              />
+            ) : (
+              <p className="text-xs text-gray-400 italic">Waiting for dice roll…</p>
+            )}
           </div>
 
           {/* Pick status + actions */}
@@ -214,13 +213,13 @@ export default function GamePage() {
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Your Pick</div>
               <div className="text-xs text-gray-500 space-y-0.5">
                 <div>
-                  Color: {selectedColor !== undefined
-                    ? <span className="font-semibold text-gray-700">{MOCK_DICE.colors[selectedColor].toUpperCase()}</span>
+                  Color: {selectedColor !== undefined && dice
+                    ? <span className="font-semibold text-gray-700">{dice.colors[selectedColor].toUpperCase()}</span>
                     : <span className="italic">none</span>}
                 </div>
                 <div>
-                  Number: {selectedNumber !== undefined
-                    ? <span className="font-semibold text-gray-700">{MOCK_DICE.numbers[selectedNumber]}</span>
+                  Number: {selectedNumber !== undefined && dice
+                    ? <span className="font-semibold text-gray-700">{dice.numbers[selectedNumber]}</span>
                     : <span className="italic">none</span>}
                 </div>
                 <div>
@@ -245,12 +244,10 @@ export default function GamePage() {
           )}
         </aside>
 
-        {/* Chat column */}
-        {chatOpen && (
-          <aside className="w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <ChatWindow roomId={room.id} playerId={me.id} players={players} onClose={() => setChatOpen(false)} />
-          </aside>
-        )}
+        {/* Chat column — always mounted to preserve messages and subscription */}
+        <aside className={`w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden ${chatOpen ? '' : 'hidden'}`}>
+          <ChatWindow roomId={room.id} playerId={me.id} players={players} onClose={() => setChatOpen(false)} />
+        </aside>
       </div>
 
       {/* Floating chat toggle */}
