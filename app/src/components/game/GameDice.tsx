@@ -3,6 +3,16 @@
 import { cn } from '@/lib/utils'
 import type { DiceColorFace, DiceNumberFace, DiceSpecialFace } from '@/types/game'
 
+// 3×3 pip grid: [TL, TC, TR, ML, MC, MR, BL, BC, BR]
+const T = true, F = false
+const PIPS: Record<string, boolean[]> = {
+  '1': [F, F, F,  F, T, F,  F, F, F],
+  '2': [F, F, T,  F, F, F,  T, F, F],
+  '3': [F, F, T,  F, T, F,  T, F, F],
+  '4': [T, F, T,  F, F, F,  T, F, T],
+  '5': [T, F, T,  F, T, F,  T, F, T],
+}
+
 const SPECIAL_LABEL: Record<DiceSpecialFace, string> = {
   heart: '♥',
   fill: '≋',
@@ -19,22 +29,57 @@ const SPECIAL_DESCRIPTION: Record<DiceSpecialFace, string> = {
   two_stars: 'Two stars (any 2 ★)',
 }
 
-const COLOR_FACE_BG: Record<DiceColorFace, string> = {
-  p: 'bg-kok-pink text-white',
-  o: 'bg-kok-orange text-white',
-  y: 'bg-kok-yellow text-white',
-  g: 'bg-kok-green text-white',
-  b: 'bg-kok-blue text-white',
-  '✕': 'bg-gray-800 text-white',
+const COLOR_FACE_TEXT: Record<DiceColorFace, string> = {
+  p: 'text-kok-pink',
+  o: 'text-kok-orange',
+  y: 'text-kok-yellow',
+  g: 'text-kok-green',
+  b: 'text-kok-blue',
+  '✕': 'text-gray-800',
 }
 
-const COLOR_FACE_LABEL: Record<DiceColorFace, string> = {
-  p: 'P',
-  o: 'O',
-  y: 'Y',
-  g: 'G',
-  b: 'B',
-  '✕': '✕',
+function Die({
+  className,
+  selected,
+  onClick,
+  children,
+}: {
+  className?: string
+  selected?: boolean
+  onClick?: () => void
+  children: React.ReactNode
+}) {
+  const Tag = onClick ? 'button' : 'div'
+  return (
+    <Tag
+      onClick={onClick}
+      className={cn(
+        'w-12 h-12 rounded-2xl relative flex items-center justify-center shrink-0 transition-all',
+        'shadow-[0_4px_0_0_rgba(0,0,0,0.18)]',
+        selected && 'shadow-[0_1px_0_0_rgba(0,0,0,0.12)] translate-y-[3px] ring-2 ring-black/50 ring-offset-1',
+        !selected && onClick && 'hover:shadow-[0_5px_0_0_rgba(0,0,0,0.22)] hover:-translate-y-px cursor-pointer',
+        className,
+      )}
+    >
+      {children}
+    </Tag>
+  )
+}
+
+function NumberFace({ value }: { value: string }) {
+  const pips = PIPS[value]
+  if (!pips) {
+    return <span className="font-black text-xl text-gray-400">?</span>
+  }
+  return (
+    <div className="grid grid-cols-3 grid-rows-3 gap-0.5 p-2 w-full h-full">
+      {pips.map((active, i) => (
+        <div key={i} className="flex items-center justify-center">
+          {active && <div className="w-2.5 h-2.5 rounded-full bg-gray-800" />}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 interface GameDiceProps {
@@ -61,22 +106,16 @@ export function GameDice({
       {/* Color dice */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Color</div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {colors.map((face, i) => (
-            <button
+            <Die
               key={i}
-              onClick={() => onSelectColor?.(i as 0 | 1 | 2)}
-              className={cn(
-                'w-11 h-11 rounded-lg flex items-center justify-center font-bold text-xs shadow',
-                COLOR_FACE_BG[face],
-                selectedColor === i
-                  ? 'ring-2 ring-offset-2 ring-black scale-110 shadow-lg'
-                  : onSelectColor && 'hover:scale-105 hover:shadow-md cursor-pointer',
-                'transition-transform',
-              )}
+              selected={selectedColor === i}
+              onClick={onSelectColor ? () => onSelectColor(i as 0 | 1 | 2) : undefined}
+              className={cn('bg-white border border-gray-200', COLOR_FACE_TEXT[face], 'font-black text-xl')}
             >
-              {COLOR_FACE_LABEL[face]}
-            </button>
+              ✕
+            </Die>
           ))}
         </div>
       </div>
@@ -84,35 +123,28 @@ export function GameDice({
       {/* Number dice */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Number</div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {numbers.map((face, i) => (
-            <button
+            <Die
               key={i}
-              onClick={() => onSelectNumber?.(i as 0 | 1 | 2)}
-              className={cn(
-                'w-11 h-11 rounded-lg flex items-center justify-center font-black text-lg shadow',
-                'bg-white border-2 text-gray-800',
-                face === '?' ? 'text-gray-400 border-gray-200' : 'border-gray-300',
-                selectedNumber === i
-                  ? 'ring-2 ring-offset-2 ring-black scale-110 shadow-lg border-gray-800'
-                  : onSelectNumber && 'hover:scale-105 hover:shadow-md cursor-pointer',
-                'transition-transform',
-              )}
+              selected={selectedNumber === i}
+              onClick={onSelectNumber ? () => onSelectNumber(i as 0 | 1 | 2) : undefined}
+              className="bg-white border border-gray-200"
             >
-              {face}
-            </button>
+              <NumberFace value={face} />
+            </Die>
           ))}
         </div>
       </div>
 
       {/* Special die */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Special</div>
-        <div className="flex items-center gap-2">
-          <div className="w-11 h-11 rounded-lg flex items-center justify-center text-lg bg-amber-50 border-2 border-amber-300 shadow shrink-0">
+        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Special Box</div>
+        <div className="flex items-center gap-2.5">
+          <Die className="bg-amber-100 text-amber-800 text-xl">
             {SPECIAL_LABEL[special]}
-          </div>
-          <span className="text-xs text-gray-500">{SPECIAL_DESCRIPTION[special]}</span>
+          </Die>
+          <span className="text-xs text-gray-500 leading-snug">{SPECIAL_DESCRIPTION[special]}</span>
         </div>
       </div>
     </div>

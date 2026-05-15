@@ -119,7 +119,7 @@ The game ends when any player has completely crossed off **2 full colors**. All 
 #### Column bonuses (A–O)
 When a player completes a column, they score:
 
-> **printed bonus** (first or subsequent) **+ current heart count**
+> **printed bonus** (first or subsequent) **+ current heart count at time of completion**
 
 First player to complete a column earns the `first` value; all later completers earn `subsequent`. Both get the heart bonus added. Column H (center, easiest to reach) has a subsequent bonus of 0.
 
@@ -129,6 +129,10 @@ First player to complete a column earns the `first` value; all later completers 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | First | 5 | 3 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 5 |
 | Subsequent | 3 | 2 | 2 | 2 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 2 | 2 | 2 | 3 |
+
+**Heart bonus row (score sheet UI):** Below the first and subsequent bonus rows on the score sheet, there is a full-width row of squares — one per column (A–O). Each square shows a lightly-colored heart icon by default. When a player completes a column, their heart count at that moment is written into that column's heart square to record the bonus earned. This makes the per-column heart bonus visible at a glance and emphasizes the incentive to earn hearts early.
+
+Because the heart count can change between column completions, this value must be recorded at the time of completion and stored per-column. It is NOT simply the player's current heart count applied retroactively. The data model must persist `column_heart_bonuses: Record<string, number>` on `room_players` (or equivalent) so the score sheet can render correctly.
 
 #### Row bonuses (P–V)
 First player to cross off every cell in a row earns **5 points** and the row's item. Subsequent completers earn nothing.

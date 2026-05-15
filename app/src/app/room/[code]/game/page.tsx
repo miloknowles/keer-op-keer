@@ -28,6 +28,7 @@ export default function GamePage() {
 
   const [viewingId, setViewingId] = useState(me.id)
   const [chatOpen, setChatOpen] = useState(false)
+  const [rolling, setRolling] = useState(false)
   const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>()
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>()
   const [selectedCells, setSelectedCells] = useState<string[]>([])
@@ -40,6 +41,20 @@ export default function GamePage() {
       .eq('round_number', room.round_number)
       .maybeSingle()
       .then(({ data }) => setCurrentHistory(data ?? null))
+
+    const channel = supabase
+      .channel(`history:${room.id}:${room.round_number}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'room_history', filter: `room_id=eq.${room.id}` },
+        (payload) => {
+          const row = payload.new as RoomHistoryRow
+          if (row.round_number === room.round_number) setCurrentHistory(row)
+        },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [room.id, room.round_number]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dice = currentHistory ? {
@@ -71,6 +86,12 @@ export default function GamePage() {
 
   function handleNumberPick(i: 0 | 1 | 2) {
     setSelectedNumber(prev => prev === i ? undefined : i)
+  }
+
+  async function handleRoll() {
+    setRolling(true)
+    await fetch(`/api/rooms/${room.code}/roll`, { method: 'POST' })
+    setRolling(false)
   }
 
   function clearPick() {
@@ -137,6 +158,7 @@ export default function GamePage() {
                 myCompletedCols={myCompletedCols}
                 firstTakenRows={firstTakenRows}
                 firstTakenCols={firstTakenCols}
+                columnHeartBonuses={(viewing.column_heart_bonuses as Record<string, number> | null) ?? {}}
               />
             </div>
 
@@ -202,8 +224,25 @@ export default function GamePage() {
                 onSelectColor={isMyBoard ? handleColorPick : undefined}
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
               />
+            ) : me.seat_index === room.current_player_index ? (
+              <button
+                onClick={handleRoll}
+                disabled={rolling}
+                className="w-full py-3 rounded-xl bg-kok-orange text-white font-black text-lg uppercase tracking-wide shadow-sm hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2"
+              >
+                {rolling ? (
+                  <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3"/>
+                    <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="8" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                  </svg>
+                ) : 'Roll Dice'}
+              </button>
             ) : (
-              <p className="text-xs text-gray-400 italic">Waiting for dice roll…</p>
+              <p className="text-xs text-gray-400 italic">Waiting for {activePlayer?.display_name ?? '—'} to roll…</p>
             )}
           </div>
 

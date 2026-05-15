@@ -27,6 +27,8 @@ export interface RoomPlayerRow {
   seat_index: number
   crossed_cells: string[]
   hearts: number
+  /** Heart count recorded at the moment each column was completed. Populated by API on column completion. */
+  column_heart_bonuses?: Record<string, number> | null
   boxes_unlocked: number   // total boxes circled/earned (starts at 1, max 9)
   boxes_spent: number      // total boxes spent; available = boxes_unlocked - boxes_spent
   wildcards: number        // remaining wildcard uses (starts at 6, only decreases)

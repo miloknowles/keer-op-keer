@@ -29,7 +29,7 @@ export function ResourceTracks({
             <div
               key={i}
               className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center text-sm',
+                'w-8 h-8 rounded-full flex items-center justify-center text-base',
                 i < hearts ? 'bg-red-500 text-white' : 'bg-gray-100 border border-gray-300 text-gray-300',
               )}
             >
@@ -44,7 +44,7 @@ export function ResourceTracks({
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
           Boxes <span className="text-gray-500 normal-case font-normal">({boxesUnlocked - boxesSpent} avail)</span>
         </div>
-        <div className="flex gap-1 flex-wrap max-w-[160px]">
+        <div className="flex gap-1 flex-wrap max-w-[200px]">
           {Array.from({ length: boxSize }).map((_, i) => {
             const spent = i < boxesSpent
             const unlocked = i < boxesUnlocked
@@ -52,13 +52,13 @@ export function ResourceTracks({
               <div
                 key={i}
                 className={cn(
-                  'w-6 h-6 rounded flex items-center justify-center text-xs font-bold',
-                  spent && 'bg-gray-300 text-gray-500',
-                  !spent && unlocked && 'bg-kok-orange text-white',
-                  !unlocked && 'bg-gray-100 border border-gray-300 text-gray-300',
+                  'w-8 h-8 rounded flex items-center justify-center text-sm font-bold',
+                  spent && 'bg-amber-700/40 text-amber-900',
+                  !spent && unlocked && 'bg-amber-700 text-white',
+                  !unlocked && 'bg-amber-100 text-amber-200',
                 )}
               >
-                {spent ? '✕' : unlocked ? '◈' : '·'}
+                {spent ? '✕' : unlocked ? '📦' : ''}
               </div>
             )
           })}
@@ -75,7 +75,7 @@ export function ResourceTracks({
             <div
               key={i}
               className={cn(
-                'w-6 h-6 rounded flex items-center justify-center text-xs font-bold',
+                'w-8 h-8 rounded flex items-center justify-center text-sm font-bold',
                 i < wildcards ? 'bg-gray-800 text-white' : 'bg-gray-100 border border-gray-300 text-gray-300',
               )}
             >
