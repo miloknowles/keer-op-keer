@@ -58,13 +58,18 @@ export interface BoardConfig {
 
     // Box track configuration.
     boxTrack: {
-      size: number;         // total number of box slots (9 in standard KoK2)
+      size: number;          // total number of box slots (9 in standard KoK2)
       startingBoxes: number; // boxes available at game start (1 in standard KoK2)
     };
 
     // Heart track configuration.
     heartTrack: {
-      size: number;         // total number of heart slots (5 in standard KoK2)
+      size: number;          // total number of heart slots (5 in standard KoK2)
+    };
+
+    // Wildcard track configuration.
+    wildcardTrack: {
+      starting: number;      // wildcard uses available at game start (6 in standard KoK2)
     };
   };
 

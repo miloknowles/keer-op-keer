@@ -65,15 +65,25 @@ Players can earn **bomb** items from completing rows. Bombs are held and can be 
 
 > **Still to verify:** whether bombs can be spent on any turn or only when you are the active player.
 
+### Wildcard Track
+
+Each player starts with **6 wildcard slots**. Wildcards are consumed whenever a player picks a wildcard die — the `?` number die or the `✕` color die.
+
+- Picking one wildcard die costs **1 wildcard slot**
+- Picking both a `?` and a `✕` in the same turn costs **2 wildcard slots**
+- A player with 0 wildcards remaining **cannot pick** a wildcard die; the UI must prevent it
+
+There is no way to earn additional wildcards — they are a finite resource that depletes over the game. There is no end-game scoring for unused wildcards.
+
 ### Dice
 
 KoK2 uses **7 dice**:
 
 **3 number dice** — faces: `1 2 3 4 5 ?`
-The `?` is a wildcard: the player who picks this die declares any value from 1–5 when they make their pick.
+The `?` is a wildcard: the player declares any value from 1–5 when making their pick, and spends 1 wildcard slot.
 
 **3 color dice** — faces: `pink orange yellow green blue ✕`
-The `✕` (black X) is a wildcard: the player who picks this die declares any color when they make their pick.
+The `✕` (black X) is a wildcard: the player declares any color when making their pick, and spends 1 wildcard slot.
 
 **1 special die** — 6 faces:
 
@@ -116,6 +126,8 @@ When a player completes a column, they score:
 
 First player to complete a column earns the `first` value; all later completers earn `subsequent`. Both get the heart bonus added. Column H (center, easiest to reach) has a subsequent bonus of 0.
 
+**Column H box reward:** Column H is the only column that awards a **box** to every player who completes it — first and subsequent alike. This is hardcoded in game logic and not represented in the board config.
+
 | Column | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | First | 5 | 3 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 5 |
@@ -148,18 +160,63 @@ First player to cross off every cell of a color: **+5 pts**. Each subsequent pla
 
 **Room code format:** 4 random uppercase letters (e.g. `XKQZ`). 26⁴ ≈ 456k combinations — sufficient for short-lived casual rooms. Chosen over human-readable names (e.g. `coolname`) because letter codes are faster to type, easier to read aloud unambiguously, and familiar from other party game platforms.
 
+### Game State Authority
+
+Game state is maintained by **Next.js API routes** acting as a stateless game server. All mutations (rolls, picks, turn advances) go through API routes, which validate the action, write to Supabase, and let Realtime broadcast the result to all clients. No browser holds authority — the host disconnecting does not affect the game.
+
+Clients run the same validation logic locally (`src/lib/game/rules.ts`) for instant UI feedback, but the server is the final authority. Invalid requests are rejected with a 400 and the client re-syncs from DB.
+
+**Turn-advance is event-driven:** after writing a player's pick, the API route checks whether all players have submitted picks for the current round. If so, it atomically advances `round_number` and `current_player_index` and rolls the next dice — no cron job or persistent process needed.
+
+### API Routes
+
+All routes are under `/api/game/`. Authentication is via Supabase session cookie; each route verifies the caller is a member of the room.
+
+| Method | Route | Who can call | Description |
+|---|---|---|---|
+| `POST` | `/api/rooms` | Any authed user | Create a room; returns `code` |
+| `POST` | `/api/rooms/[code]/join` | Any authed user | Join a room as a player |
+| `POST` | `/api/rooms/[code]/start` | Host only | Transition `lobby → in_progress`; rolls first dice |
+| `POST` | `/api/game/[code]/roll` | Active player | Roll all 7 dice; writes to `room_history` |
+| `POST` | `/api/game/[code]/pick` | Any player in room | Submit dice pick + declared wildcard values; writes pick to `room_history`, updates `room_players` sheet state. If all picks in, advances turn. |
+| `POST` | `/api/game/[code]/finish` | Server-triggered | Transition `in_progress → finished`; compute and write final scores |
+
+**`POST /api/game/[code]/pick` request body:**
+```ts
+// Active player picking color + number dice
+{ type: "color_number", color_die: 0, number_die: 2,
+  declared_color: "pink", declared_number: 3,
+  cells: ["A-P", "A-Q", "A-R"] }  // cells the player intends to cross off
+
+// Active player spending a box to use the special die
+{ type: "special", cells: [...] }  // cells depend on which special face was rolled
+
+// Active player spending a held bomb
+{ type: "bomb", cells: ["C-Q", "C-R", "D-Q", "D-R"] }  // must be a valid 2×2
+```
+
+The `cells` array is included in the pick so the server can validate placement (adjacency, color match, count) in a single request rather than a separate move submission.
+
 ### Real-Time Sync
 
-- Every dice roll is broadcast to all players via Supabase Realtime
-- Each player's sheet is their own private state — only they can mark it, but everyone can see it (read-only for others)
-- Non-active players see the dice pool and pick their 2 dice; UI enforces they cannot pick the active player's chosen dice
-- Optional: per-turn timer for non-active player picks
+Clients subscribe to Supabase Realtime on entering a room. All state changes flow from DB → Realtime → clients; clients never write directly to Supabase.
+
+| Table | Event | Client reaction |
+|---|---|---|
+| `room_history` | INSERT | New round: animate dice, open pick UI |
+| `room_players` | UPDATE | Re-render that player's sheet, tracks, and scores |
+| `room_chats` | INSERT | Append to chat |
+| `rooms` | UPDATE | Handle status transitions; show scoring screen on `finished` |
 
 ### Game States
 
 ```
-lobby → in_progress → scoring → finished
+lobby → in_progress → finished
 ```
+
+State transitions:
+- `lobby → in_progress` — host calls `/start`; server rolls first dice
+- `in_progress → finished` — server detects a player completed 2 colors after processing a pick; finishes the current round, then computes scores
 
 ---
 
@@ -206,6 +263,7 @@ room_players (
   hearts          int NOT NULL DEFAULT 0,            -- heart track progress (0–5)
   boxes           int NOT NULL DEFAULT 1,            -- available boxes on box track (0–9)
   bombs           int NOT NULL DEFAULT 0,            -- held bomb items
+  wildcards       int NOT NULL DEFAULT 6,            -- remaining wildcard uses (starts at 6, only decreases)
 
   -- End-game (populated when status → 'finished')
   score           int,
@@ -288,10 +346,20 @@ room_history (
 keer-op-keer/
 ├── app/                         # Next.js application
 │   └── src/
-│       ├── app/                 # App Router pages
+│       ├── app/                 # App Router pages + API routes
 │       │   ├── page.tsx         # Landing / create or join room
 │       │   ├── room/[code]/
 │       │   │   └── page.tsx     # Game room (lobby + game + scoring)
+│       │   ├── api/
+│       │   │   ├── rooms/
+│       │   │   │   ├── route.ts            # POST /api/rooms
+│       │   │   │   └── [code]/
+│       │   │   │       ├── join/route.ts   # POST /api/rooms/[code]/join
+│       │   │   │       └── start/route.ts  # POST /api/rooms/[code]/start
+│       │   │   └── game/[code]/
+│       │   │       ├── roll/route.ts       # POST /api/game/[code]/roll
+│       │   │       ├── pick/route.ts       # POST /api/game/[code]/pick
+│       │   │       └── finish/route.ts     # POST /api/game/[code]/finish
 │       │   └── layout.tsx
 │       ├── components/
 │       │   ├── game/            # ScoreSheet, Cell, DiceRoller, DicePicker, etc.
