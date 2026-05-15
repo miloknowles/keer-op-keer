@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keer op Keer",
+  title: "Keer op Keer 2 Multiplayer Online",
   description: "Online multiplayer roll-and-write",
 };
 

@@ -1,4 +1,4 @@
-export type Color = "pink" | "orange" | "yellow" | "green" | "blue";
+export type Color = "p" | "o" | "y" | "g" | "b";
 
 // Special icon printed on a cell.
 // "star"  — if uncrossed at game end, costs the player `starPenalty` points.

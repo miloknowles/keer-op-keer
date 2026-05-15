@@ -7,17 +7,17 @@ import { generateRoomCode } from "@/lib/utils";
 const ROWS = [
   {
     letters: ["K", "E", "E", "R"],
-    colors: ["bg-red-500", "bg-blue-500", "bg-yellow-400", "bg-green-500"],
+    colors: ["bg-kok-pink", "bg-kok-blue", "bg-kok-yellow", "bg-kok-green"],
     stars: [false, false, true, false],
   },
   {
     letters: ["O", "P"],
-    colors: ["bg-orange-500", "bg-red-400"],
+    colors: ["bg-kok-orange", "bg-kok-pink"],
     stars: [false, false],
   },
   {
     letters: ["K", "E", "E", "R"],
-    colors: ["bg-blue-500", "bg-green-500", "bg-yellow-400", "bg-orange-500"],
+    colors: ["bg-kok-blue", "bg-kok-green", "bg-kok-yellow", "bg-kok-orange"],
     stars: [false, true, false, false],
   },
 ];
@@ -52,12 +52,16 @@ export default function Home() {
         ))}
       </div>
 
-      <p className="text-gray-600 font-medium text-lg">Roll-and-write &middot; 1–6 players</p>
+      <p className="text-center text-gray-600 text-sm italic">
+        &ldquo;het blifft nooit bij 1 spelletej&rdquo;
+        <br />
+        <span className="not-italic text-gray-500">&ldquo;it never stops at just one game&rdquo;</span>
+      </p>
 
       <div className="flex flex-col items-center gap-3">
         <button
           onClick={() => router.push(`/room/${generateRoomCode()}`)}
-          className="bg-orange-500 hover:bg-orange-400 active:translate-y-0.5 text-white font-bold text-xl px-14 py-3.5 rounded-xl shadow-md transition-all select-none"
+          className="bg-kok-orange hover:brightness-110 hover:-translate-y-1 hover:shadow-lg active:translate-y-0.5 text-white font-bold text-xl uppercase px-14 py-3.5 rounded-xl shadow-md transition-all select-none"
         >
           New game
         </button>
@@ -76,17 +80,20 @@ export default function Home() {
           <button
             type="submit"
             disabled={!code.trim()}
-            className="bg-blue-500 hover:bg-blue-400 active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl px-6 py-3 rounded-xl shadow-md transition-all select-none"
+            className="bg-kok-blue hover:brightness-110 active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl uppercase px-6 py-3 rounded-xl shadow-md transition-all select-none"
           >
             Join
           </button>
         </form>
       </div>
-      <p className="text-center text-gray-500 text-sm italic mt-4">
-        &ldquo;het blifft nooit bij 1 spelletej&rdquo;
-        <br />
-        <span className="not-italic text-gray-400">&ldquo;it never stops at just one game&rdquo; 😊</span>
-      </p>
+      <a
+        href="https://www.999games.nl/product/keer-op-keer/8719214421847"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-500 hover:text-gray-700 text-xs underline underline-offset-2 transition-colors"
+      >
+        Buy the original game
+      </a>
     </div>
   );
 }

@@ -18,11 +18,10 @@ This repo is an online multiplayer clone playable in the browser via real-time r
 
 Each player has an identical score sheet — a **7 row × 15 column** colored grid (rows labeled P–V top-to-bottom, columns labeled A–O left-to-right). Column H is the center column and is highlighted; it is the mandatory starting column.
 
-The grid contains cells in **5 colors**: pink, orange, yellow, green, blue. Cells are irregularly distributed. Some cells contain special icons:
+The grid contains cells in **5 colors**: pink (p), orange (o), yellow (y), green (g), blue (b). Cells are irregularly distributed. Some cells contain special icons:
 
 - **Star cells** (☆) — if not crossed off at game end, each costs **−2 points**
 - **Box cells** (!) — when crossed off, grants 1 box on the player's box track
-- **Heart cells** (♥) — when crossed off, advances the player's heart track by 1
 
 ### Cell Placement Rules
 
@@ -36,8 +35,8 @@ The grid contains cells in **5 colors**: pink, orange, yellow, green, blue. Cell
 Each player's sheet has a **heart track** — 5 heart slots labeled 1 through 5, separate from the main grid.
 
 **Earning hearts:** A player advances their heart track (crosses off the next slot) when they:
-- Take the special die and it shows a Heart face, or
-- Are the first to complete a row whose item is a heart
+- Use the special die and it shows a Heart face, or
+- Are the first player to complete a row whose item is a heart
 
 **Heart bonus on column completion:** Whenever a player completes a column, they earn their **current heart count as a bonus** on top of the column's printed first/subsequent value. So a player with 3 hearts crossed off gets +3 on every column they complete from that point forward.
 
@@ -426,8 +425,8 @@ keer-op-keer/
 
 ## Open Questions
 
-1. **Exact grid color layout** — need to map each (col, row) cell to its color; currently a placeholder in `kok2-standard.json`
-2. **Star / box / heart cell counts and positions** — how many of each special cell, and where
-3. **Tie-breaking** — how is a draw resolved at game end? TBD.
-4. **Turn timer** — should non-active players have a time limit to pick their dice?
-5. **Anonymous play** — support playing without an account?
+1. ~~**Exact grid color layout**~~ — resolved: all 105 cells mapped in `kok2-standard.json` using codes p/o/y/g/b.
+2. ~~**Star / box / heart cell counts and positions**~~ — resolved: 12 star cells and 5 box cells mapped; no heart cells exist on the grid (hearts come only from the special die or first-place row completion).
+3. **Tie-breaking** — ties are allowed; no tie-breaking rule. Final scores may be equal.
+4. ~~**Turn timer**~~ — no turn timer; non-active players pick at their own pace.
+5. **Anonymous play** — no account required. All players are anonymous. Supabase anonymous auth may be used under the hood to persist identity across sessions, but players never see a login flow.
