@@ -35,7 +35,8 @@ room_players (
   seat_index int NOT NULL,
   crossed_cells text[] NOT NULL DEFAULT '{}',
   hearts int NOT NULL DEFAULT 0,
-  boxes int NOT NULL DEFAULT 1,
+  boxes_unlocked int NOT NULL DEFAULT 1,
+  boxes_spent int NOT NULL DEFAULT 0,
   wildcards int NOT NULL DEFAULT 6,
   score int,
   score_breakdown jsonb,
@@ -65,7 +66,7 @@ room_history (
   active_player_id uuid NOT NULL REFERENCES room_players(id),
   dice_colors text[] NOT NULL,    -- length 3
   dice_numbers text[] NOT NULL,   -- length 3; "?" = wildcard
-  dice_special text NOT NULL,     -- "heart"|"sweep"|"three_in_a_row"|"bomb"|"two_stars"
+  dice_special text NOT NULL,     -- "heart"|"fill"|"three_in_a_row"|"bomb"|"two_stars"
   active_pick jsonb NOT NULL,
   player_picks jsonb NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -143,7 +144,7 @@ export interface RoomHistoryRow {
 // Dice
 export type DiceColorFace = 'p' | 'o' | 'y' | 'g' | 'b' | '✕'
 export type DiceNumberFace = '1' | '2' | '3' | '4' | '5' | '?'
-export type DiceSpecialFace = 'heart' | 'sweep' | 'three_in_a_row' | 'bomb' | 'two_stars'
+export type DiceSpecialFace = 'heart' | 'fill' | 'three_in_a_row' | 'bomb' | 'two_stars'
 
 export interface DiceRoll {
   colors: [DiceColorFace, DiceColorFace, DiceColorFace]
@@ -194,7 +195,7 @@ export interface ScoreBreakdown {
 
 - `COLOR_FACES: DiceColorFace[]` — all 6 faces of a color die
 - `NUMBER_FACES: DiceNumberFace[]` — all 6 faces of a number die  
-- `SPECIAL_FACES: DiceSpecialFace[]` with correct weights: heart×2, sweep×1, three_in_a_row×1, bomb×1, two_stars×1
+- `SPECIAL_FACES: DiceSpecialFace[]` with correct weights: heart×2, fill×1, three_in_a_row×1, bomb×1, two_stars×1
 - `rollDice(): DiceRoll` — pick random face from each die using proper weights for the special die
 - `isColorWildcard(face: DiceColorFace): boolean`
 - `isNumberWildcard(face: DiceNumberFace): boolean`
@@ -210,7 +211,7 @@ Helpers that work on the board config + a player's `crossed_cells` array:
 - `isColorComplete(config, color, crossed): boolean`
 - `getAdjacentCells(config, key): CellKey[]` — orthogonal neighbors
 - `isAdjacentToRegion(config, key, crossed): boolean`
-- `getConnectedRegion(config, color, startKey, crossed): CellKey[]` — flood-fill for Sweep
+- `getConnectedRegion(config, color, startKey, crossed): CellKey[]` — flood-fill for Fill
 - `colorsCompleted(config, crossed): Color[]` — for game-end detection
 - `uncrossedStars(config, crossed): CellKey[]`
 
@@ -223,7 +224,7 @@ Server-authoritative validation. All functions return `{ valid: boolean; error?:
   - In rounds 1–2: all dice available. In rounds 3+: active player's dice excluded from non-active picks
 - `validateSpecialPick(config, pick, roll, player): ValidationResult`
   - Checks: player has ≥1 box, cells match the special die face rule
-  - Sweep: cells form a connected same-color region adjacent to existing region
+  - Fill: cells form a connected same-color region adjacent to existing region
   - Three-in-a-row: exactly 3 cells in same row, each individually adjacent to region
   - Bomb: exactly 4 cells forming a 2×2 block
   - Two-stars: exactly 2 cells that are star cells
@@ -407,7 +408,7 @@ UI for non-active players (and active player choosing color+number) to select 1 
 
 For the active player spending a box. Shows the special die face and renders the appropriate cell-selection UI based on the face:
 - **Heart** — no UI, just confirm
-- **Sweep** — click a same-color connected region adjacent to your territory
+- **Fill** — click a same-color connected region adjacent to your territory
 - **Three-in-a-row** — click exactly 3 cells in a single row, each adjacent to territory
 - **Bomb** — click any 2×2 block
 - **Two-stars** — click exactly 2 star cells anywhere
@@ -535,7 +536,7 @@ Phase 6 (ScoreSheet) can begin in parallel with Phase 5 since it only needs the 
 
 | Risk | Mitigation |
 |---|---|
-| **Adjacency validation complexity** | Write comprehensive unit tests for `rules.ts` before using it in the API. Test edge cases: first placement (column H), Sweep across non-contiguous same-color regions, bomb at board edges |
+| **Adjacency validation complexity** | Write comprehensive unit tests for `rules.ts` before using it in the API. Test edge cases: first placement (column H), Fill across non-contiguous same-color regions, bomb at board edges |
 | **Turn-advance race condition** | The pick API must check "all picks in?" atomically — use a Supabase RPC (stored procedure) or database transaction to read + write `room_history` atomically |
 | **Wildcard die tracking across round types** | Open dice (rounds 1–2) vs restricted pool (round 3+): the server must enforce which dice indices are available to non-active players |
 | **Bomb mid-turn** | Bomb cells must be validated together with the triggering pick — treat `bomb_cells` as part of the same atomic write |

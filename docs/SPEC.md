@@ -85,7 +85,7 @@ The `✕` (black X) is a wildcard: the player declares any color when making the
 | Face | Count | Effect |
 |---|---|---|
 | Heart | 2 | Advance your heart track by 1 |
-| Sweep | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region. Diagonal does not count. |
+| Fill | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region. Diagonal does not count. |
 | Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row. All 3 cells must each individually be orthogonally adjacent to your existing region. |
 | Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
 | Two stars | 1 | Cross off any 2 star cells anywhere on your sheet |
@@ -240,93 +240,7 @@ State transitions:
 
 ### Supabase Schema
 
-```sql
--- Core room metadata. Kept lean — board config lives in room_boards.
-rooms (
-  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code                  text UNIQUE NOT NULL,        -- short join code e.g. "XKQZ"
-  host_id               uuid,                        -- FK → room_players.id (set after first join)
-  status                text NOT NULL DEFAULT 'lobby',
-                                                     -- 'lobby' | 'in_progress' | 'finished'
-  current_player_index  int NOT NULL DEFAULT 0,
-  round_number          int NOT NULL DEFAULT 0,
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  started_at            timestamptz,
-  finished_at           timestamptz
-)
-
--- One row per player per room.
-room_players (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id         uuid NOT NULL REFERENCES rooms(id),
-  user_id         uuid REFERENCES auth.users(id),    -- null = anonymous/guest
-  display_name    text NOT NULL,
-  seat_index      int NOT NULL,                      -- turn order within the room
-
-  -- Live game state (mutated as the game progresses)
-  crossed_cells   text[] NOT NULL DEFAULT '{}',      -- cell keys e.g. {"A-P","B-Q"}
-  hearts          int NOT NULL DEFAULT 0,            -- heart track progress (0–5)
-  boxes           int NOT NULL DEFAULT 1,            -- available boxes on box track (0–9)
-  wildcards       int NOT NULL DEFAULT 6,            -- remaining wildcard uses (starts at 6, only decreases)
-
-  -- End-game (populated when status → 'finished')
-  score           int,
-  score_breakdown jsonb,                             -- { columns, rows, colors, stars, ... }
-
-  joined_at       timestamptz NOT NULL DEFAULT now()
-)
-
--- Board config for a room. 1:1 with rooms, split out to keep rooms lightweight.
-room_boards (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id      uuid UNIQUE NOT NULL REFERENCES rooms(id),
-  template_id  text,                                -- e.g. "kok2-standard"; null = custom
-  config       jsonb NOT NULL,                      -- full BoardConfig JSON
-  created_at   timestamptz NOT NULL DEFAULT now()
-)
-
--- Chat messages. Simple append-only log.
-room_chats (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id    uuid NOT NULL REFERENCES rooms(id),
-  player_id  uuid REFERENCES room_players(id),      -- null = system message
-  message    text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-
--- One row per round. Source of truth for game replay and catch-up on reconnect.
-room_history (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id           uuid NOT NULL REFERENCES rooms(id),
-  round_number      int NOT NULL,
-  active_player_id  uuid NOT NULL REFERENCES room_players(id),
-
-  -- The roll (always 7 dice). Stored as rolled — wildcards preserved as-is.
-  dice_colors   text[3] NOT NULL,   -- e.g. {"pink","✕","orange"}  — "✕" = wildcard
-  dice_numbers  text[3] NOT NULL,   -- e.g. {"3","?","5"}           — "?" = wildcard (text to allow "?")
-  dice_special  text NOT NULL,      -- "heart"|"floodfill"|"three_in_a_row"|"bomb"|"two_stars"
-
-  -- Active player's choice. declared_color/declared_number record the chosen value
-  -- for wildcard dice; for non-wildcards they match the die face.
-  -- bomb_cells is only present if a row completion triggered an immediate bomb.
-  active_pick   jsonb NOT NULL,
-    -- { type: "color_number", color_die: 0, number_die: 2,
-    --   declared_color: "pink", declared_number: 3,
-    --   cells: ["A-P","A-Q","A-R"], bomb_cells: ["C-Q","C-R","D-Q","D-R"] }
-    -- { type: "special", cells: [...], bomb_cells: [...] }
-    -- { type: "pass" }
-
-  -- Each non-active player's pick (keyed by room_players.id).
-  -- Same structure as active_pick but type is always "color_number" or "pass".
-  player_picks  jsonb NOT NULL DEFAULT '{}',
-    -- { "<player_id>": { type: "color_number", color_die: 1, number_die: 0,
-    --                    declared_color: "blue", declared_number: 1,
-    --                    cells: [...], bomb_cells: [...] }, ... }
-
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (room_id, round_number)
-)
-```
+See [`docs/schema.sql`](schema.sql) for the full applied schema including indexes, RLS policies, and Realtime configuration.
 
 ### Schema Design Decisions
 
