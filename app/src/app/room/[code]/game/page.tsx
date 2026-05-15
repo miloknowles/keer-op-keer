@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { ScoreSheet } from '@/components/game/ScoreSheet'
 import { GameDice } from '@/components/game/GameDice'
 import { ResourceTracks } from '@/components/game/ResourceTracks'
+import { ChatWindow } from '@/components/game/ChatWindow'
+import { useRoomContext } from '@/lib/context/room'
 import type { DiceColorFace, DiceNumberFace, DiceSpecialFace, BoardConfig } from '@/types/game'
 import rawBoard from '@/lib/kok2-standard.json'
 
@@ -68,14 +70,16 @@ const MOCK_DICE = {
 }
 
 export default function GamePage() {
+  const { room, me, players } = useRoomContext()
   const [viewingId, setViewingId] = useState('1')
+  const [chatOpen, setChatOpen] = useState(false)
   const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>()
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>()
   const [selectedCells, setSelectedCells] = useState<string[]>([])
 
   const viewing = MOCK_PLAYERS.find(p => p.id === viewingId)!
-  const me = MOCK_PLAYERS.find(p => p.isCurrentUser)!
-  const isMyBoard = viewingId === me.id
+  const mockMe = MOCK_PLAYERS.find(p => p.isCurrentUser)!
+  const isMyBoard = viewingId === mockMe.id
 
   const scoring = boardConfig.scoring
 
@@ -105,7 +109,7 @@ export default function GamePage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-black text-kok-orange tracking-wide">KEER OP KEER</span>
+          <span className="font-black text-kok-orange tracking-wide uppercase">Keer op Keer 2</span>
           <span className="text-gray-300">|</span>
           <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">XKQZ</span>
         </div>
@@ -138,31 +142,33 @@ export default function GamePage() {
             ))}
           </div>
 
-          {/* Score sheet */}
-          <div className="bg-white rounded-xl shadow-sm p-4 inline-block">
-            <ScoreSheet
-              config={boardConfig}
-              crossedCells={viewing.crossedCells}
-              selectedCells={isMyBoard ? selectedCells : []}
-              onCellClick={isMyBoard ? handleCellClick : undefined}
-            />
-          </div>
+          <div className="flex flex-col gap-3 w-fit">
+            {/* Score sheet */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <ScoreSheet
+                config={boardConfig}
+                crossedCells={viewing.crossedCells}
+                selectedCells={isMyBoard ? selectedCells : []}
+                onCellClick={isMyBoard ? handleCellClick : undefined}
+              />
+            </div>
 
-          {/* Resource tracks for viewed player */}
-          <div className="mt-3 bg-white rounded-xl shadow-sm px-4 py-3 inline-block">
-            <ResourceTracks
-              hearts={viewing.hearts}
-              heartSize={scoring.heartTrack.size}
-              boxesUnlocked={viewing.boxesUnlocked}
-              boxesSpent={viewing.boxesSpent}
-              boxSize={scoring.boxTrack.size}
-              wildcards={viewing.wildcards}
-              wildcardStart={scoring.wildcardTrack.starting}
-            />
+            {/* Resource tracks for viewed player */}
+            <div className="bg-white rounded-xl shadow-sm px-4 py-3">
+              <ResourceTracks
+                hearts={viewing.hearts}
+                heartSize={scoring.heartTrack.size}
+                boxesUnlocked={viewing.boxesUnlocked}
+                boxesSpent={viewing.boxesSpent}
+                boxSize={scoring.boxTrack.size}
+                wildcards={viewing.wildcards}
+                wildcardStart={scoring.wildcardTrack.starting}
+              />
+            </div>
           </div>
         </main>
 
-        {/* Right sidebar */}
+        {/* Game actions sidebar */}
         <aside className="w-60 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
           {/* Players list */}
           <div className="p-4 border-b border-gray-100">
@@ -238,7 +244,27 @@ export default function GamePage() {
             </div>
           )}
         </aside>
+
+        {/* Chat column */}
+        {chatOpen && (
+          <aside className="w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+            <ChatWindow roomId={room.id} playerId={me.id} players={players} onClose={() => setChatOpen(false)} />
+          </aside>
+        )}
       </div>
+
+      {/* Floating chat toggle */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-5 right-5 w-12 h-12 rounded-full bg-kok-blue text-white shadow-lg flex items-center justify-center hover:brightness-110 transition-all"
+          aria-label="Open chat"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6l-4 3V4z" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
