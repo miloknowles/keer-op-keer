@@ -25,8 +25,8 @@ export interface BoardConfig {
   version: number;
 
   grid: {
-    columns: string[];      // ordered left-to-right, e.g. ["A".."O"]
-    rows: string[];         // ordered top-to-bottom, e.g. ["P".."V"]
+    columns: string[]; // ordered left-to-right, e.g. ["A".."O"]
+    rows: string[]; // ordered top-to-bottom, e.g. ["P".."V"]
     startColumns: string[]; // columns a player's first cross must land in
   };
 
@@ -44,7 +44,7 @@ export interface BoardConfig {
 
     // Bonus for crossing off every cell of a single color.
     colorCompletion: {
-      first: number;      // points for the first player to finish the color
+      first: number; // points for the first player to finish the color
       subsequent: number; // points for every other player who also finishes it
     };
 
@@ -58,18 +58,18 @@ export interface BoardConfig {
 
     // Box track configuration.
     boxTrack: {
-      size: number;          // total number of box slots (9 in standard KoK2)
+      size: number; // total number of box slots (9 in standard KoK2)
       startingBoxes: number; // boxes available at game start (1 in standard KoK2)
     };
 
     // Heart track configuration.
     heartTrack: {
-      size: number;          // total number of heart slots (5 in standard KoK2)
+      size: number; // total number of heart slots (5 in standard KoK2)
     };
 
     // Wildcard track configuration.
     wildcardTrack: {
-      starting: number;      // wildcard uses available at game start (6 in standard KoK2)
+      starting: number; // wildcard uses available at game start (6 in standard KoK2)
     };
   };
 

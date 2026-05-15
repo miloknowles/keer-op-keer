@@ -1,13 +1,13 @@
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 interface ResourceTracksProps {
-  hearts: number
-  heartSize: number
-  boxesUnlocked: number
-  boxesSpent: number
-  boxSize: number
-  wildcards: number
-  wildcardStart: number
+  hearts: number;
+  heartSize: number;
+  boxesUnlocked: number;
+  boxesSpent: number;
+  boxSize: number;
+  wildcards: number;
+  wildcardStart: number;
 }
 
 export function ResourceTracks({
@@ -23,14 +23,18 @@ export function ResourceTracks({
     <div className="flex gap-6">
       {/* Hearts */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Hearts</div>
+        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+          Hearts
+        </div>
         <div className="flex gap-1">
           {Array.from({ length: heartSize }).map((_, i) => (
             <div
               key={i}
               className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-base',
-                i < hearts ? 'bg-red-500 text-white' : 'bg-gray-100 border border-gray-300 text-gray-300',
+                "w-8 h-8 rounded-full flex items-center justify-center text-base",
+                i < hearts
+                  ? "bg-red-500 text-white"
+                  : "bg-gray-100 border border-gray-300 text-gray-300",
               )}
             >
               ♥
@@ -42,25 +46,28 @@ export function ResourceTracks({
       {/* Box track */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Boxes <span className="text-gray-500 normal-case font-normal">({boxesUnlocked - boxesSpent} avail)</span>
+          Boxes{" "}
+          <span className="text-gray-500 normal-case font-normal">
+            ({boxesUnlocked - boxesSpent} avail)
+          </span>
         </div>
         <div className="flex gap-1 flex-wrap max-w-[200px]">
           {Array.from({ length: boxSize }).map((_, i) => {
-            const spent = i < boxesSpent
-            const unlocked = i < boxesUnlocked
+            const spent = i < boxesSpent;
+            const unlocked = i < boxesUnlocked;
             return (
               <div
                 key={i}
                 className={cn(
-                  'w-8 h-8 rounded flex items-center justify-center text-sm font-bold',
-                  spent && 'bg-amber-700/40 text-amber-900',
-                  !spent && unlocked && 'bg-amber-700 text-white',
-                  !unlocked && 'bg-amber-100 text-amber-200',
+                  "w-8 h-8 rounded flex items-center justify-center text-sm font-bold",
+                  spent && "bg-amber-700/40 text-amber-900",
+                  !spent && unlocked && "bg-amber-700 text-white",
+                  !unlocked && "bg-amber-100 text-amber-200",
                 )}
               >
-                {spent ? '✕' : unlocked ? '📦' : ''}
+                {spent ? "✕" : unlocked ? "📦" : ""}
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -68,15 +75,20 @@ export function ResourceTracks({
       {/* Wildcards */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Wildcards <span className="text-gray-500 normal-case font-normal">({wildcards} left)</span>
+          Wildcards{" "}
+          <span className="text-gray-500 normal-case font-normal">
+            ({wildcards} left)
+          </span>
         </div>
         <div className="flex gap-1">
           {Array.from({ length: wildcardStart }).map((_, i) => (
             <div
               key={i}
               className={cn(
-                'w-8 h-8 rounded flex items-center justify-center text-sm font-bold',
-                i < wildcards ? 'bg-gray-800 text-white' : 'bg-gray-100 border border-gray-300 text-gray-300',
+                "w-8 h-8 rounded flex items-center justify-center text-sm font-bold",
+                i < wildcards
+                  ? "bg-gray-800 text-white"
+                  : "bg-gray-100 border border-gray-300 text-gray-300",
               )}
             >
               ✕
@@ -85,5 +97,5 @@ export function ResourceTracks({
         </div>
       </div>
     </div>
-  )
+  );
 }

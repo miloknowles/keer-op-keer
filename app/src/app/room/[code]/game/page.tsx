@@ -1,121 +1,170 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
-import Avatar from 'boring-avatars'
-import { isRowComplete, isColumnComplete } from '@/lib/game/sheet'
-import { ScoreSheet } from '@/components/game/ScoreSheet'
-import { GameDice } from '@/components/game/GameDice'
-import { ResourceTracks } from '@/components/game/ResourceTracks'
-import { ChatWindow } from '@/components/game/ChatWindow'
-import { useRoomContext } from '@/lib/context/room'
-import { createClient } from '@/lib/supabase/client'
-import type { DiceColorFace, DiceNumberFace, BoardConfig, RoomHistoryRow } from '@/types/game'
+import { useEffect, useRef, useState } from "react";
+import Avatar from "boring-avatars";
+import { isRowComplete, isColumnComplete } from "@/lib/game/sheet";
+import { ScoreSheet } from "@/components/game/ScoreSheet";
+import { GameDice } from "@/components/game/GameDice";
+import { ResourceTracks } from "@/components/game/ResourceTracks";
+import { ChatWindow } from "@/components/game/ChatWindow";
+import { useRoomContext } from "@/lib/context/room";
+import { createClient } from "@/lib/supabase/client";
+import type {
+  DiceColorFace,
+  DiceNumberFace,
+  BoardConfig,
+  RoomHistoryRow,
+} from "@/types/game";
 
 const SEAT_COLORS: [string, string][] = [
-  ['#E8437C', '#ffffff'],
-  ['#4264D4', '#ffffff'],
-  ['#E8C43A', '#ffffff'],
-  ['#2FAD50', '#ffffff'],
-  ['#E87820', '#ffffff'],
-]
+  ["#E8437C", "#ffffff"],
+  ["#4264D4", "#ffffff"],
+  ["#E8C43A", "#ffffff"],
+  ["#2FAD50", "#ffffff"],
+  ["#E87820", "#ffffff"],
+];
 
 export default function GamePage() {
-  const { room, me, players, board } = useRoomContext()
-  const boardConfig = board.config as unknown as BoardConfig
+  const { room, me, players, board } = useRoomContext();
+  const boardConfig = board.config as unknown as BoardConfig;
 
-  const supabase = useRef(createClient()).current
-  const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(null)
+  const supabase = useRef(createClient()).current;
+  const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(
+    null,
+  );
 
-  const [viewingId, setViewingId] = useState(me.id)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [rolling, setRolling] = useState(false)
-  const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>()
-  const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>()
-  const [selectedCells, setSelectedCells] = useState<string[]>([])
+  const [viewingId, setViewingId] = useState(me.id);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [rolling, setRolling] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>();
+  const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>();
+  const [selectedCells, setSelectedCells] = useState<string[]>([]);
 
   useEffect(() => {
     supabase
-      .from('room_history')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('round_number', room.round_number)
+      .from("room_history")
+      .select("*")
+      .eq("room_id", room.id)
+      .eq("round_number", room.round_number)
       .maybeSingle()
-      .then(({ data }) => setCurrentHistory(data ?? null))
+      .then(({ data }) => setCurrentHistory(data ?? null));
 
     const channel = supabase
       .channel(`history:${room.id}:${room.round_number}`)
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'room_history', filter: `room_id=eq.${room.id}` },
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "room_history",
+          filter: `room_id=eq.${room.id}`,
+        },
         (payload) => {
-          const row = payload.new as RoomHistoryRow
-          if (row.round_number === room.round_number) setCurrentHistory(row)
+          const row = payload.new as RoomHistoryRow;
+          if (row.round_number === room.round_number) setCurrentHistory(row);
         },
       )
-      .subscribe()
+      .subscribe();
 
-    return () => { supabase.removeChannel(channel) }
-  }, [room.id, room.round_number]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [room.id, room.round_number]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dice = currentHistory ? {
-    colors: currentHistory.dice_colors as [DiceColorFace, DiceColorFace, DiceColorFace],
-    numbers: currentHistory.dice_numbers as [DiceNumberFace, DiceNumberFace, DiceNumberFace],
-    special: currentHistory.dice_special,
-  } : null
+  const dice = currentHistory
+    ? {
+        colors: currentHistory.dice_colors as [
+          DiceColorFace,
+          DiceColorFace,
+          DiceColorFace,
+        ],
+        numbers: currentHistory.dice_numbers as [
+          DiceNumberFace,
+          DiceNumberFace,
+          DiceNumberFace,
+        ],
+        special: currentHistory.dice_special,
+      }
+    : null;
 
-  const viewing = players.find(p => p.id === viewingId) ?? players[0]
-  const isMyBoard = viewingId === me.id
-  const activePlayer = players.find(p => p.seat_index === room.current_player_index)
+  const viewing = players.find((p) => p.id === viewingId) ?? players[0];
+  const isMyBoard = viewingId === me.id;
+  const activePlayer = players.find(
+    (p) => p.seat_index === room.current_player_index,
+  );
 
-  const scoring = boardConfig.scoring
-  const { grid } = boardConfig
+  const scoring = boardConfig.scoring;
+  const { grid } = boardConfig;
 
-  const myCompletedRows = grid.rows.filter(r => isRowComplete(boardConfig, r, viewing.crossed_cells))
-  const myCompletedCols = grid.columns.filter(c => isColumnComplete(boardConfig, c, viewing.crossed_cells))
-  const firstTakenRows = grid.rows.filter(r => players.some(p => isRowComplete(boardConfig, r, p.crossed_cells)))
-  const firstTakenCols = grid.columns.filter(c => players.some(p => isColumnComplete(boardConfig, c, p.crossed_cells)))
+  const myCompletedRows = grid.rows.filter((r) =>
+    isRowComplete(boardConfig, r, viewing.crossed_cells),
+  );
+  const myCompletedCols = grid.columns.filter((c) =>
+    isColumnComplete(boardConfig, c, viewing.crossed_cells),
+  );
+  const firstTakenRows = grid.rows.filter((r) =>
+    players.some((p) => isRowComplete(boardConfig, r, p.crossed_cells)),
+  );
+  const firstTakenCols = grid.columns.filter((c) =>
+    players.some((p) => isColumnComplete(boardConfig, c, p.crossed_cells)),
+  );
 
   function handleCellClick(key: string) {
-    if (!isMyBoard) return
-    setSelectedCells(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+    if (!isMyBoard) return;
+    setSelectedCells((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
   }
 
   function handleColorPick(i: 0 | 1 | 2) {
-    setSelectedColor(prev => prev === i ? undefined : i)
+    setSelectedColor((prev) => (prev === i ? undefined : i));
   }
 
   function handleNumberPick(i: 0 | 1 | 2) {
-    setSelectedNumber(prev => prev === i ? undefined : i)
+    setSelectedNumber((prev) => (prev === i ? undefined : i));
   }
 
   async function handleRoll() {
-    setRolling(true)
-    await fetch(`/api/rooms/${room.code}/roll`, { method: 'POST' })
-    setRolling(false)
+    setRolling(true);
+    await fetch(`/api/rooms/${room.code}/roll`, { method: "POST" });
+    setRolling(false);
   }
 
   function clearPick() {
-    setSelectedColor(undefined)
-    setSelectedNumber(undefined)
-    setSelectedCells([])
+    setSelectedColor(undefined);
+    setSelectedNumber(undefined);
+    setSelectedCells([]);
   }
 
-  const canConfirm = isMyBoard && selectedColor !== undefined && selectedNumber !== undefined && selectedCells.length > 0
+  const canConfirm =
+    isMyBoard &&
+    selectedColor !== undefined &&
+    selectedNumber !== undefined &&
+    selectedCells.length > 0;
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-black text-kok-orange tracking-wide uppercase">Keer op Keer 2</span>
+          <span className="font-black text-kok-orange tracking-wide uppercase">
+            Keer op Keer 2
+          </span>
           <span className="text-gray-300">|</span>
-          <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">{room.code.toUpperCase()}</span>
+          <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">
+            {room.code.toUpperCase()}
+          </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-gray-500">Round <span className="font-bold text-gray-800">{room.round_number}</span></span>
+          <span className="text-gray-500">
+            Round{" "}
+            <span className="font-bold text-gray-800">{room.round_number}</span>
+          </span>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-kok-green animate-pulse" />
-            <span className="font-medium text-kok-green">{activePlayer?.display_name ?? '—'}'s turn</span>
+            <span className="font-medium text-kok-green">
+              {activePlayer?.display_name ?? "—"}'s turn
+            </span>
           </div>
         </div>
       </header>
@@ -125,14 +174,14 @@ export default function GamePage() {
         <main className="flex-1 p-5 overflow-auto">
           {/* Player tabs */}
           <div className="flex gap-1.5 mb-4">
-            {players.map(p => (
+            {players.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setViewingId(p.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                   viewingId === p.id
-                    ? 'bg-kok-blue text-white shadow-sm'
-                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                    ? "bg-kok-blue text-white shadow-sm"
+                    : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
                 }`}
               >
                 <Avatar
@@ -141,7 +190,8 @@ export default function GamePage() {
                   size={20}
                   colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
                 />
-                {p.display_name}{p.id === me.id && ' (you)'}
+                {p.display_name}
+                {p.id === me.id && " (you)"}
               </button>
             ))}
           </div>
@@ -158,7 +208,12 @@ export default function GamePage() {
                 myCompletedCols={myCompletedCols}
                 firstTakenRows={firstTakenRows}
                 firstTakenCols={firstTakenCols}
-                columnHeartBonuses={(viewing.column_heart_bonuses as Record<string, number> | null) ?? {}}
+                columnHeartBonuses={
+                  (viewing.column_heart_bonuses as Record<
+                    string,
+                    number
+                  > | null) ?? {}
+                }
               />
             </div>
 
@@ -181,15 +236,19 @@ export default function GamePage() {
         <aside className="w-60 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
           {/* Players list */}
           <div className="p-4 border-b border-gray-100">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Players</div>
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Players
+            </div>
             <div className="flex flex-col gap-1">
-              {players.map(p => {
-                const isActive = p.seat_index === room.current_player_index
+              {players.map((p) => {
+                const isActive = p.seat_index === room.current_player_index;
                 return (
                   <div
                     key={p.id}
                     className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-sm ${
-                      isActive ? 'bg-kok-green/10 border border-kok-green/25' : 'bg-gray-50'
+                      isActive
+                        ? "bg-kok-green/10 border border-kok-green/25"
+                        : "bg-gray-50"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -201,19 +260,28 @@ export default function GamePage() {
                       />
                       <span className="font-medium text-gray-800">
                         {p.display_name}
-                        {p.id === me.id && <span className="text-gray-400 text-xs font-normal"> (you)</span>}
+                        {p.id === me.id && (
+                          <span className="text-gray-400 text-xs font-normal">
+                            {" "}
+                            (you)
+                          </span>
+                        )}
                       </span>
                     </div>
-                    <span className="font-bold text-gray-700 tabular-nums">{p.score ?? 0}</span>
+                    <span className="font-bold text-gray-700 tabular-nums">
+                      {p.score ?? 0}
+                    </span>
                   </div>
-                )
+                );
               })}
             </div>
           </div>
 
           {/* Dice roll */}
           <div className="p-4 border-b border-gray-100">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Dice Roll</div>
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Dice Roll
+            </div>
             {dice ? (
               <GameDice
                 colors={dice.colors}
@@ -231,40 +299,101 @@ export default function GamePage() {
                 className="w-full py-3 rounded-xl bg-kok-orange text-white font-black text-lg uppercase tracking-wide shadow-sm hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2"
               >
                 {rolling ? (
-                  <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3"/>
-                    <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
-                    <circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/>
-                    <circle cx="8" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-                    <circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                  <svg
+                    className="animate-spin"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3" />
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="1.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="16"
+                      cy="8"
+                      r="1.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="8"
+                      cy="16"
+                      r="1.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="16"
+                      cy="16"
+                      r="1.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="1.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
                   </svg>
-                ) : 'Roll Dice'}
+                ) : (
+                  "Roll Dice"
+                )}
               </button>
             ) : (
-              <p className="text-xs text-gray-400 italic">Waiting for {activePlayer?.display_name ?? '—'} to roll…</p>
+              <p className="text-xs text-gray-400 italic">
+                Waiting for {activePlayer?.display_name ?? "—"} to roll…
+              </p>
             )}
           </div>
 
           {/* Pick status + actions */}
           {isMyBoard && (
             <div className="p-4 flex flex-col gap-2">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Your Pick</div>
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                Your Pick
+              </div>
               <div className="text-xs text-gray-500 space-y-0.5">
                 <div>
-                  Color: {selectedColor !== undefined && dice
-                    ? <span className="font-semibold text-gray-700">{dice.colors[selectedColor].toUpperCase()}</span>
-                    : <span className="italic">none</span>}
+                  Color:{" "}
+                  {selectedColor !== undefined && dice ? (
+                    <span className="font-semibold text-gray-700">
+                      {dice.colors[selectedColor].toUpperCase()}
+                    </span>
+                  ) : (
+                    <span className="italic">none</span>
+                  )}
                 </div>
                 <div>
-                  Number: {selectedNumber !== undefined && dice
-                    ? <span className="font-semibold text-gray-700">{dice.numbers[selectedNumber]}</span>
-                    : <span className="italic">none</span>}
+                  Number:{" "}
+                  {selectedNumber !== undefined && dice ? (
+                    <span className="font-semibold text-gray-700">
+                      {dice.numbers[selectedNumber]}
+                    </span>
+                  ) : (
+                    <span className="italic">none</span>
+                  )}
                 </div>
                 <div>
-                  Cells: {selectedCells.length > 0
-                    ? <span className="font-semibold text-gray-700">{selectedCells.join(', ')}</span>
-                    : <span className="italic">none selected</span>}
+                  Cells:{" "}
+                  {selectedCells.length > 0 ? (
+                    <span className="font-semibold text-gray-700">
+                      {selectedCells.join(", ")}
+                    </span>
+                  ) : (
+                    <span className="italic">none selected</span>
+                  )}
                 </div>
               </div>
               <button
@@ -284,8 +413,15 @@ export default function GamePage() {
         </aside>
 
         {/* Chat column — always mounted to preserve messages and subscription */}
-        <aside className={`w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden ${chatOpen ? '' : 'hidden'}`}>
-          <ChatWindow roomId={room.id} playerId={me.id} players={players} onClose={() => setChatOpen(false)} />
+        <aside
+          className={`w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden ${chatOpen ? "" : "hidden"}`}
+        >
+          <ChatWindow
+            roomId={room.id}
+            playerId={me.id}
+            players={players}
+            onClose={() => setChatOpen(false)}
+          />
         </aside>
       </div>
 
@@ -302,5 +438,5 @@ export default function GamePage() {
         </button>
       )}
     </div>
-  )
+  );
 }

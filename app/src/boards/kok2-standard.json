@@ -20,18 +20,8 @@
       "N",
       "O"
     ],
-    "rows": [
-      "P",
-      "Q",
-      "R",
-      "S",
-      "T",
-      "U",
-      "V"
-    ],
-    "startColumns": [
-      "H"
-    ]
+    "rows": ["P", "Q", "R", "S", "T", "U", "V"],
+    "startColumns": ["H"]
   },
   "scoring": {
     "columnBonuses": {

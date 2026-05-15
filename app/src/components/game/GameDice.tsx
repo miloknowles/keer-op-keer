@@ -1,42 +1,47 @@
-'use client'
+"use client";
 
-import { cn } from '@/lib/utils'
-import type { DiceColorFace, DiceNumberFace, DiceSpecialFace } from '@/types/game'
+import { cn } from "@/lib/utils";
+import type {
+  DiceColorFace,
+  DiceNumberFace,
+  DiceSpecialFace,
+} from "@/types/game";
 
 // 3×3 pip grid: [TL, TC, TR, ML, MC, MR, BL, BC, BR]
-const T = true, F = false
+const T = true,
+  F = false;
 const PIPS: Record<string, boolean[]> = {
-  '1': [F, F, F,  F, T, F,  F, F, F],
-  '2': [F, F, T,  F, F, F,  T, F, F],
-  '3': [F, F, T,  F, T, F,  T, F, F],
-  '4': [T, F, T,  F, F, F,  T, F, T],
-  '5': [T, F, T,  F, T, F,  T, F, T],
-}
+  "1": [F, F, F, F, T, F, F, F, F],
+  "2": [F, F, T, F, F, F, T, F, F],
+  "3": [F, F, T, F, T, F, T, F, F],
+  "4": [T, F, T, F, F, F, T, F, T],
+  "5": [T, F, T, F, T, F, T, F, T],
+};
 
 const SPECIAL_LABEL: Record<DiceSpecialFace, string> = {
-  heart: '♥',
-  fill: '≋',
-  three_in_a_row: '|||',
-  bomb: '💣',
-  two_stars: '★★',
-}
+  heart: "♥",
+  fill: "≋",
+  three_in_a_row: "|||",
+  bomb: "💣",
+  two_stars: "★★",
+};
 
 const SPECIAL_DESCRIPTION: Record<DiceSpecialFace, string> = {
-  heart: 'Heart (+1 heart track)',
-  fill: 'Fill (connected section)',
-  three_in_a_row: '3-in-a-row',
-  bomb: 'Bomb (any 2×2)',
-  two_stars: 'Two stars (any 2 ★)',
-}
+  heart: "Heart (+1 heart track)",
+  fill: "Fill (connected section)",
+  three_in_a_row: "3-in-a-row",
+  bomb: "Bomb (any 2×2)",
+  two_stars: "Two stars (any 2 ★)",
+};
 
 const COLOR_FACE_TEXT: Record<DiceColorFace, string> = {
-  p: 'text-kok-pink',
-  o: 'text-kok-orange',
-  y: 'text-kok-yellow',
-  g: 'text-kok-green',
-  b: 'text-kok-blue',
-  '✕': 'text-gray-800',
-}
+  p: "text-kok-pink",
+  o: "text-kok-orange",
+  y: "text-kok-yellow",
+  g: "text-kok-green",
+  b: "text-kok-blue",
+  "✕": "text-gray-800",
+};
 
 function Die({
   className,
@@ -44,32 +49,35 @@ function Die({
   onClick,
   children,
 }: {
-  className?: string
-  selected?: boolean
-  onClick?: () => void
-  children: React.ReactNode
+  className?: string;
+  selected?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
 }) {
-  const Tag = onClick ? 'button' : 'div'
+  const Tag = onClick ? "button" : "div";
   return (
     <Tag
       onClick={onClick}
       className={cn(
-        'w-12 h-12 rounded-2xl relative flex items-center justify-center shrink-0 transition-all',
-        'shadow-[0_4px_0_0_rgba(0,0,0,0.18)]',
-        selected && 'shadow-[0_1px_0_0_rgba(0,0,0,0.12)] translate-y-[3px] ring-2 ring-black/50 ring-offset-1',
-        !selected && onClick && 'hover:shadow-[0_5px_0_0_rgba(0,0,0,0.22)] hover:-translate-y-px cursor-pointer',
+        "w-12 h-12 rounded-2xl relative flex items-center justify-center shrink-0 transition-all",
+        "shadow-[0_4px_0_0_rgba(0,0,0,0.18)]",
+        selected &&
+          "shadow-[0_1px_0_0_rgba(0,0,0,0.12)] translate-y-[3px] ring-2 ring-black/50 ring-offset-1",
+        !selected &&
+          onClick &&
+          "hover:shadow-[0_5px_0_0_rgba(0,0,0,0.22)] hover:-translate-y-px cursor-pointer",
         className,
       )}
     >
       {children}
     </Tag>
-  )
+  );
 }
 
 function NumberFace({ value }: { value: string }) {
-  const pips = PIPS[value]
+  const pips = PIPS[value];
   if (!pips) {
-    return <span className="font-black text-xl text-gray-400">?</span>
+    return <span className="font-black text-xl text-gray-400">?</span>;
   }
   return (
     <div className="grid grid-cols-3 grid-rows-3 gap-0.5 p-2 w-full h-full">
@@ -79,17 +87,17 @@ function NumberFace({ value }: { value: string }) {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 interface GameDiceProps {
-  colors: [DiceColorFace, DiceColorFace, DiceColorFace]
-  numbers: [DiceNumberFace, DiceNumberFace, DiceNumberFace]
-  special: DiceSpecialFace
-  selectedColor?: 0 | 1 | 2
-  selectedNumber?: 0 | 1 | 2
-  onSelectColor?: (i: 0 | 1 | 2) => void
-  onSelectNumber?: (i: 0 | 1 | 2) => void
+  colors: [DiceColorFace, DiceColorFace, DiceColorFace];
+  numbers: [DiceNumberFace, DiceNumberFace, DiceNumberFace];
+  special: DiceSpecialFace;
+  selectedColor?: 0 | 1 | 2;
+  selectedNumber?: 0 | 1 | 2;
+  onSelectColor?: (i: 0 | 1 | 2) => void;
+  onSelectNumber?: (i: 0 | 1 | 2) => void;
 }
 
 export function GameDice({
@@ -105,14 +113,22 @@ export function GameDice({
     <div className="flex flex-col gap-3">
       {/* Color dice */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Color</div>
+        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+          Color
+        </div>
         <div className="flex gap-2">
           {colors.map((face, i) => (
             <Die
               key={i}
               selected={selectedColor === i}
-              onClick={onSelectColor ? () => onSelectColor(i as 0 | 1 | 2) : undefined}
-              className={cn('bg-white border border-gray-200', COLOR_FACE_TEXT[face], 'font-black text-xl')}
+              onClick={
+                onSelectColor ? () => onSelectColor(i as 0 | 1 | 2) : undefined
+              }
+              className={cn(
+                "bg-white border border-gray-200",
+                COLOR_FACE_TEXT[face],
+                "font-black text-xl",
+              )}
             >
               ✕
             </Die>
@@ -122,13 +138,19 @@ export function GameDice({
 
       {/* Number dice */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Number</div>
+        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+          Number
+        </div>
         <div className="flex gap-2">
           {numbers.map((face, i) => (
             <Die
               key={i}
               selected={selectedNumber === i}
-              onClick={onSelectNumber ? () => onSelectNumber(i as 0 | 1 | 2) : undefined}
+              onClick={
+                onSelectNumber
+                  ? () => onSelectNumber(i as 0 | 1 | 2)
+                  : undefined
+              }
               className="bg-white border border-gray-200"
             >
               <NumberFace value={face} />
@@ -139,14 +161,18 @@ export function GameDice({
 
       {/* Special die */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Special Box</div>
+        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+          Special Box
+        </div>
         <div className="flex items-center gap-2.5">
           <Die className="bg-amber-100 text-amber-800 text-xl">
             {SPECIAL_LABEL[special]}
           </Die>
-          <span className="text-xs text-gray-500 leading-snug">{SPECIAL_DESCRIPTION[special]}</span>
+          <span className="text-xs text-gray-500 leading-snug">
+            {SPECIAL_DESCRIPTION[special]}
+          </span>
         </div>
       </div>
     </div>
-  )
+  );
 }

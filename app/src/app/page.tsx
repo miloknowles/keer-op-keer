@@ -59,7 +59,10 @@ export default function Home() {
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     const trimmedCode = code.trim().toLowerCase();
-    if (!trimmedCode) { setJoinError("Enter a room code"); return; }
+    if (!trimmedCode) {
+      setJoinError("Enter a room code");
+      return;
+    }
     const display_name = getOrGenerateName();
     setLoading(true);
     setJoinError(null);
@@ -90,7 +93,9 @@ export default function Home() {
                 className={`${row.colors[ci]} relative flex w-16 h-16 items-center justify-center rounded-xl text-white font-bold text-3xl shadow-md select-none`}
               >
                 {row.stars[ci] && (
-                  <span className="absolute top-1 right-1.5 text-white/70 text-xs leading-none">★</span>
+                  <span className="absolute top-1 right-1.5 text-white/70 text-xs leading-none">
+                    ★
+                  </span>
                 )}
                 {char}
               </div>
@@ -102,7 +107,9 @@ export default function Home() {
       <p className="text-center text-gray-600 text-sm italic">
         &ldquo;het blifft nooit bij 1 spelletej&rdquo;
         <br />
-        <span className="not-italic text-gray-500">&ldquo;it never stops at just one game&rdquo;</span>
+        <span className="not-italic text-gray-500">
+          &ldquo;it never stops at just one game&rdquo;
+        </span>
       </p>
 
       {/* Buttons */}
@@ -117,12 +124,18 @@ export default function Home() {
 
         <p className="text-gray-500 text-sm font-medium">or</p>
 
-        <form onSubmit={handleJoin} className="flex flex-col items-center gap-3">
+        <form
+          onSubmit={handleJoin}
+          className="flex flex-col items-center gap-3"
+        >
           <div className="flex gap-2">
             <input
               type="text"
               value={code}
-              onChange={(e) => { setCode(e.target.value); setJoinError(null); }}
+              onChange={(e) => {
+                setCode(e.target.value);
+                setJoinError(null);
+              }}
               placeholder="Enter code"
               maxLength={12}
               className="w-44 rounded-xl border-2 border-white/60 bg-white/70 px-4 py-3 text-center font-bold text-gray-700 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 shadow-sm outline-none focus:border-blue-400 focus:bg-white transition-all"
