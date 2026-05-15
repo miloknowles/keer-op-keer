@@ -68,17 +68,24 @@ Players can earn **bomb** items from completing rows. Bombs are held and can be 
 ### Dice
 
 KoK2 uses **7 dice**:
-- **3 color dice** — each face shows one of 5 colors
-- **3 number dice** — each face shows a number
-- **1 special die** — 6 faces:
 
-  | Face | Count | Effect |
-  |---|---|---|
-  | Heart | 2 | Cross off one heart cell anywhere on your sheet |
-  | Floodfill | 1 | Cross off an entire connected section of one color (however large) |
-  | Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row; each must touch your existing region but they don't need to touch each other |
-  | Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
-  | Two stars | 1 | Cross off any 2 star cells anywhere on your sheet |
+**3 number dice** — faces: `1 2 3 4 5 ?`
+The `?` is a wildcard: the player who picks this die declares any value from 1–5 when they make their pick.
+
+**3 color dice** — faces: `pink orange yellow green blue ✕`
+The `✕` (black X) is a wildcard: the player who picks this die declares any color when they make their pick.
+
+**1 special die** — 6 faces:
+
+| Face | Count | Effect |
+|---|---|---|
+| Heart | 2 | Advance your heart track by 1 |
+| Floodfill | 1 | Cross off an entire connected section of one color (however large) |
+| Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row; each must touch your existing region but they don't need to touch each other |
+| Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
+| Two stars | 1 | Cross off any 2 star cells anywhere on your sheet |
+
+Wildcard rules apply equally to the active player and non-active players. When a player picks a `?` or `✕` die, the UI prompts them to declare their chosen value/color before confirming the pick. The declared value is what gets stored and acted on.
 
 ### Turn Structure
 
@@ -89,10 +96,12 @@ Each round, one player is the **active player**. Turns rotate clockwise.
    - **1 color die + 1 number die** → cross off that many cells of that color (adjacency rule applies)
    - **Spend 1 box** → use the special die result instead (requires ≥1 box on the track)
    - **Spend a held bomb** → use a previously earned bomb item
-3. **All other players** each independently choose **2 of the remaining 6 dice** (the dice the active player did not take) and apply that color+number combo to their own sheet. Multiple non-active players may pick the same pair.
+3. **All other players** each independently choose **2 dice** and apply that color+number combo to their own sheet.
 4. Play passes to the next active player.
 
-> Non-active players cannot choose the dice the active player took. They are not competing with each other — each independently reads from the same remaining pool.
+**Open dice rounds (rounds 1 and 2):** For the first two rounds of the game, all players — active and non-active — may pick freely from all 7 dice. There is no exclusive first pick and no restricted remaining pool. Starting from round 3, the active player's chosen dice are excluded from what non-active players may pick.
+
+> In rounds 3+, non-active players are not competing with each other — each independently reads from the same remaining pool.
 
 ### Game End
 
@@ -137,6 +146,8 @@ First player to cross off every cell of a color: **+5 pts**. Each subsequent pla
 - One player is the **host** who starts the game
 - Spectator mode — stretch goal
 
+**Room code format:** 4 random uppercase letters (e.g. `XKQZ`). 26⁴ ≈ 456k combinations — sufficient for short-lived casual rooms. Chosen over human-readable names (e.g. `coolname`) because letter codes are faster to type, easier to read aloud unambiguously, and familiar from other party game platforms.
+
 ### Real-Time Sync
 
 - Every dice roll is broadcast to all players via Supabase Realtime
@@ -165,46 +176,111 @@ lobby → in_progress → scoring → finished
 | Auth | **Supabase Auth** | Anonymous or email; guest play supported |
 | Hosting | **Vercel** | Next.js native |
 
-### Supabase Schema (Draft)
+### Supabase Schema
 
 ```sql
--- Rooms
+-- Core room metadata. Kept lean — board config lives in room_boards.
 rooms (
-  id uuid PK,
-  code text UNIQUE,              -- short join code e.g. "XKQZ"
-  host_id uuid,                  -- references auth.users
-  status text,                   -- 'lobby' | 'in_progress' | 'finished'
-  current_player_index int,
-  round_number int,
-  created_at timestamptz
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code                  text UNIQUE NOT NULL,        -- short join code e.g. "XKQZ"
+  host_id               uuid,                        -- FK → room_players.id (set after first join)
+  status                text NOT NULL DEFAULT 'lobby',
+                                                     -- 'lobby' | 'in_progress' | 'finished'
+  current_player_index  int NOT NULL DEFAULT 0,
+  round_number          int NOT NULL DEFAULT 0,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  started_at            timestamptz,
+  finished_at           timestamptz
 )
 
--- Players in a room
+-- One row per player per room.
 room_players (
-  id uuid PK,
-  room_id uuid FK rooms,
-  user_id uuid FK auth.users,
-  display_name text,
-  seat_index int,                -- turn order
-  sheet jsonb,                   -- serialized score sheet state (crossed cells)
-  hearts int DEFAULT 0,          -- hearts crossed off on the heart track (0–5); added to every column bonus
-  boxes int DEFAULT 1,           -- available boxes on the box track (0–9); spent to use the special die
-  bombs int DEFAULT 0,           -- held bomb items earned from row completions
-  score int,
-  joined_at timestamptz
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id         uuid NOT NULL REFERENCES rooms(id),
+  user_id         uuid REFERENCES auth.users(id),    -- null = anonymous/guest
+  display_name    text NOT NULL,
+  seat_index      int NOT NULL,                      -- turn order within the room
+
+  -- Live game state (mutated as the game progresses)
+  crossed_cells   text[] NOT NULL DEFAULT '{}',      -- cell keys e.g. {"A-P","B-Q"}
+  hearts          int NOT NULL DEFAULT 0,            -- heart track progress (0–5)
+  boxes           int NOT NULL DEFAULT 1,            -- available boxes on box track (0–9)
+  bombs           int NOT NULL DEFAULT 0,            -- held bomb items
+
+  -- End-game (populated when status → 'finished')
+  score           int,
+  score_breakdown jsonb,                             -- { columns, rows, colors, stars, ... }
+
+  joined_at       timestamptz NOT NULL DEFAULT now()
 )
 
--- Per-round dice rolls (for history / replay)
-rounds (
-  id uuid PK,
-  room_id uuid FK rooms,
-  round_number int,
-  active_player_id uuid,
-  dice_result jsonb,             -- { colors: [c,c,c], numbers: [n,n,n], special: 'heart'|'bomb'|... }
-  active_player_pick jsonb,      -- { type: 'color_number', color, number } | { type: 'special' } | { type: 'item', item }
-  created_at timestamptz
+-- Board config for a room. 1:1 with rooms, split out to keep rooms lightweight.
+room_boards (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id      uuid UNIQUE NOT NULL REFERENCES rooms(id),
+  template_id  text,                                -- e.g. "kok2-standard"; null = custom
+  config       jsonb NOT NULL,                      -- full BoardConfig JSON
+  created_at   timestamptz NOT NULL DEFAULT now()
+)
+
+-- Chat messages. Simple append-only log.
+room_chats (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id    uuid NOT NULL REFERENCES rooms(id),
+  player_id  uuid REFERENCES room_players(id),      -- null = system message
+  message    text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+)
+
+-- One row per round. Source of truth for game replay and catch-up on reconnect.
+room_history (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id           uuid NOT NULL REFERENCES rooms(id),
+  round_number      int NOT NULL,
+  active_player_id  uuid NOT NULL REFERENCES room_players(id),
+
+  -- The roll (always 7 dice). Stored as rolled — wildcards preserved as-is.
+  dice_colors   text[3] NOT NULL,   -- e.g. {"pink","✕","orange"}  — "✕" = wildcard
+  dice_numbers  text[3] NOT NULL,   -- e.g. {"3","?","5"}           — "?" = wildcard (text to allow "?")
+  dice_special  text NOT NULL,      -- "heart"|"floodfill"|"three_in_a_row"|"bomb"|"two_stars"
+
+  -- Active player's choice. If a wildcard die was picked, declared_color/declared_number
+  -- record the player's chosen value; otherwise they match the die face.
+  active_pick   jsonb NOT NULL,
+    -- { type: "color_number", color_die: 0, number_die: 2,
+    --   declared_color: "pink", declared_number: 3 }
+    -- { type: "special" }          ← spent a box to use the special die
+    -- { type: "bomb" }             ← spent a held bomb item
+
+  -- Each non-active player's pick (keyed by room_players.id).
+  -- Includes declared values for any wildcard dice.
+  player_picks  jsonb NOT NULL DEFAULT '{}',
+    -- { "<player_id>": { color_die: 1, number_die: 0,
+    --                    declared_color: "blue", declared_number: 1 }, ... }
+
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (room_id, round_number)
 )
 ```
+
+### Schema Design Decisions
+
+| Decision | Choice | Reason |
+|---|---|---|
+| Sheet state location | Inline on `room_players` | State is small; simpler to update and read |
+| Crossed cells type | `text[]` not jsonb | Append-friendly, compact, membership check is fast |
+| Board config location | Separate `room_boards` | Config is large; keeps `rooms` fast for lobby queries |
+| History granularity | One row per round | Rounds are atomic; enough to reconstruct full game state |
+| Dice storage | Typed columns not jsonb | Enforces structure; easier to query individual values |
+
+### Realtime Subscriptions
+
+| Table | Event | Client action |
+|---|---|---|
+| `room_history` | INSERT | New round: show dice result, open pick UI |
+| `room_players` | UPDATE | Re-render that player's sheet and resource tracks |
+| `room_chats` | INSERT | Append message to chat |
+| `rooms` | UPDATE | Handle status transitions (lobby → in progress → finished) |
 
 ### Directory Structure
 

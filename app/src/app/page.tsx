@@ -33,7 +33,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-10 bg-gray-300 min-h-screen">
+    <div className="flex flex-1 flex-col items-center justify-center gap-10 bg-gray-200 min-h-screen">
       <div className="flex flex-col items-center gap-2">
         {ROWS.map((row, ri) => (
           <div key={ri} className="flex gap-2">
@@ -82,6 +82,11 @@ export default function Home() {
           </button>
         </form>
       </div>
+      <p className="text-center text-gray-500 text-sm italic mt-4">
+        &ldquo;het blifft nooit bij 1 spelletej&rdquo;
+        <br />
+        <span className="not-italic text-gray-400">&ldquo;it never stops at just one game&rdquo; 😊</span>
+      </p>
     </div>
   );
 }
