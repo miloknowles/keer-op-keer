@@ -8,6 +8,8 @@ The plan is ordered so each phase builds on the last and produces something runn
 
 ## Phase 1 — Database Schema ✓
 
+> **Supabase dashboard prerequisite:** ✓ **Authentication → Sign In / Up → Anonymous sign-ins** is enabled.
+
 **Goal:** Get the Supabase schema in place so everything downstream can write to it.
 
 ### 1.1 Create `supabase/` directory and migration file
@@ -76,7 +78,15 @@ room_history (
 
 Also add RLS policies: players can only read/write rows for rooms they belong to.
 
-Enable Realtime on `rooms`, `room_players`, `room_chats`, `room_history`.
+RLS write policies applied via `fix_rls_policies` migration:
+- `room_players` REPLICA IDENTITY set to FULL (Realtime DELETE events carry the old row)
+- `room_players_insert`: `WITH CHECK (user_id = auth.uid())`
+- `room_players_update`: `USING (user_id = auth.uid())`
+- `rooms_update`: host-only with `host_id IS NULL` bootstrap branch
+- `host_can_kick_players` DELETE policy added
+- Lobby-readable SELECT policies on `rooms` and `room_players` (join flow)
+
+Enable Realtime on `rooms`, `room_players`, `room_chats`, `room_history`. ✓ Confirmed in `supabase_realtime` publication.
 
 ---
 
@@ -541,4 +551,4 @@ Phase 6 (ScoreSheet) can begin in parallel with Phase 5 since it only needs the 
 | **Wildcard die tracking across round types** | Open dice (rounds 1–2) vs restricted pool (round 3+): the server must enforce which dice indices are available to non-active players |
 | **Bomb mid-turn** | Bomb cells must be validated together with the triggering pick — treat `bomb_cells` as part of the same atomic write |
 | **Heart timing simplification** | v1 uses final heart count for all column bonuses. This is documented; revisit if players notice the discrepancy |
-| **Supabase RLS** | Set up policies before v1 or use service-role key only in API routes (simpler for now, tighten later) |
+| **Supabase RLS** | ✓ Write policies applied and tightened (host-only update, self-only insert/update for players, kick policy added) |

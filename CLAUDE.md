@@ -25,6 +25,10 @@ docs/
 supabase/             Database migrations
 ```
 
+## MCP servers
+
+A Supabase MCP server is configured in `.mcp.json` at the repo root. It gives Claude direct access to the project's database, migrations, storage, and logs. Restart Claude Code to activate it if it isn't already loaded.
+
 ## Commands
 
 All from the `app/` directory:
