@@ -6,7 +6,7 @@ The plan is ordered so each phase builds on the last and produces something runn
 
 ---
 
-## Phase 1 — Database Schema
+## Phase 1 — Database Schema ✓
 
 **Goal:** Get the Supabase schema in place so everything downstream can write to it.
 
@@ -80,7 +80,7 @@ Enable Realtime on `rooms`, `room_players`, `room_chats`, `room_history`.
 
 ---
 
-## Phase 2 — TypeScript Types
+## Phase 2 — TypeScript Types ✓
 
 **Goal:** Define all shared types in one place so game logic, API routes, and UI are in sync.
 
