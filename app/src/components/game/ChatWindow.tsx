@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useRoomChat } from '@/hooks/use-room-chat'
 import type { RoomChatRow, RoomPlayerRow } from '@/types/game'
 
 interface Props {
@@ -12,51 +12,19 @@ interface Props {
 }
 
 export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
-  const supabase = useRef(createClient()).current
-  const [messages, setMessages] = useState<RoomChatRow[]>([])
+  const { messages, loading, sendMessage } = useRoomChat(roomId, playerId)
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    supabase
-      .from('room_chats')
-      .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(50)
-      .then(({ data }) => {
-        if (data) setMessages(data)
-      })
-
-    const channel = supabase
-      .channel(`chat:${roomId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'room_chats', filter: `room_id=eq.${roomId}` },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as RoomChatRow])
-        },
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [roomId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [messages])
 
-  async function sendMessage() {
-    const text = input.trim()
-    if (!text) return
-    setInput('')
-    await supabase.from('room_chats').insert({ room_id: roomId, player_id: playerId, message: text })
-  }
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') sendMessage()
+    if (e.key === 'Enter') {
+      sendMessage(input.trim())
+      setInput('')
+    }
   }
 
   function resolveName(msg: RoomChatRow) {
@@ -83,7 +51,14 @@ export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
-        {messages.length === 0 && (
+        {loading && (
+          <div className="flex items-center justify-center mt-4 gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce [animation-delay:-0.3s]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce [animation-delay:-0.15s]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" />
+          </div>
+        )}
+        {!loading && messages.length === 0 && (
           <p className="text-xs text-gray-300 italic text-center mt-4">No messages yet</p>
         )}
         {messages.map((msg) => {
@@ -126,7 +101,7 @@ export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
           className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-kok-blue/50 focus:border-kok-blue/50 placeholder:text-gray-300"
         />
         <button
-          onClick={sendMessage}
+          onClick={() => { sendMessage(input.trim()); setInput('') }}
           disabled={!input.trim()}
           className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-kok-blue text-white disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all shrink-0"
         >
