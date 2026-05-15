@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { BoardConfig } from '@boards/board.types'
+import type { BoardConfig } from '@/boards/board.types'
 import type { DiceRoll, RoomPlayerRow, ColorNumberPick, SpecialPick } from '../../types/game'
 import {
   validateColorNumberPick,
@@ -8,7 +8,7 @@ import {
   canPass,
 } from './rules'
 
-import rawBoard from '@boards/kok2-standard.json'
+import rawBoard from '@/boards/kok2-standard.json'
 const config = rawBoard as unknown as BoardConfig
 
 // H-P: green, H-Q: pink, H-R: orange(star), H-S: blue

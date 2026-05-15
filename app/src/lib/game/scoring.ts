@@ -1,4 +1,4 @@
-import type { BoardConfig, Color } from '@boards/board.types'
+import type { BoardConfig, Color } from '@/boards/board.types'
 import type { RoomPlayerRow, ScoreBreakdown } from '../../types/game'
 import {
   isColumnComplete,

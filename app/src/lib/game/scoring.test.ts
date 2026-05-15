@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import type { BoardConfig } from '@boards/board.types'
+import type { BoardConfig } from '@/boards/board.types'
 import type { RoomPlayerRow } from '../../types/game'
 import { computeScore } from './scoring'
 import { getCellsOfColor } from './sheet'
 
-import rawBoard from '@boards/kok2-standard.json'
+import rawBoard from '@/boards/kok2-standard.json'
 const config = rawBoard as unknown as BoardConfig
 
 // Column H cells: H-P, H-Q, H-R, H-S, H-T, H-U, H-V (7 cells)

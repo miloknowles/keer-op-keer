@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateRoomCode } from '@/lib/utils'
-import boardConfig from '@boards/kok2-standard.json'
+import boardConfig from '@/boards/kok2-standard.json'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()

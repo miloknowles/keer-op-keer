@@ -1,4 +1,4 @@
-import type { BoardConfig, BoardCell, CellKey, Color } from '@boards/board.types'
+import type { BoardConfig, BoardCell, CellKey, Color } from '@/boards/board.types'
 
 export function getCell(config: BoardConfig, key: CellKey): BoardCell | undefined {
   return config.cells[key]

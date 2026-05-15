@@ -1,4 +1,4 @@
-import type { BoardConfig } from '@boards/board.types'
+import type { BoardConfig } from '@/boards/board.types'
 import type {
   ColorNumberPick,
   SpecialPick,
@@ -247,7 +247,7 @@ export function canPass(
             type: 'color_number',
             color_die: ci as 0 | 1 | 2,
             number_die: ni as 0 | 1 | 2,
-            declared_color: dc as import('@boards/board.types').Color,
+            declared_color: dc as import('@/boards/board.types').Color,
             declared_number: dn,
             cells: [],
           }

@@ -1,5 +1,5 @@
-export type { Color, CellKey, BoardCell, BoardConfig } from '@boards/board.types'
-import type { Color, BoardConfig } from '@boards/board.types'
+export type { Color, CellKey, BoardCell, BoardConfig } from '@/boards/board.types'
+import type { Color, BoardConfig } from '@/boards/board.types'
 
 // ---------------------------------------------------------------------------
 // Room / DB row shapes (snake_case matches Supabase column names)
