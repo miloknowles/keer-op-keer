@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const PLAYER_COLORS = [
@@ -11,7 +11,7 @@ const PLAYER_COLORS = [
   "bg-kok-orange",
 ];
 
-const MOCK_PLAYERS = [
+const INITIAL_PLAYERS = [
   { id: "1", display_name: "Milo", seat_index: 0, is_host: true, is_me: true },
   { id: "2", display_name: "Anna", seat_index: 1, is_host: false, is_me: false },
   { id: "3", display_name: "Tom", seat_index: 2, is_host: false, is_me: false },
@@ -23,6 +23,31 @@ const MAX_PLAYERS = 6;
 export function LobbyView({ code }: { code: string }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [players, setPlayers] = useState(INITIAL_PLAYERS);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEditing(id: string, currentName: string) {
+    setEditingId(id);
+    setDraft(currentName);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function commitEdit() {
+    const trimmed = draft.trim();
+    if (trimmed && editingId) {
+      setPlayers((prev) =>
+        prev.map((p) => (p.id === editingId ? { ...p, display_name: trimmed } : p))
+      );
+    }
+    setEditingId(null);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") commitEdit();
+    if (e.key === "Escape") setEditingId(null);
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(code.toUpperCase());
@@ -55,12 +80,12 @@ export function LobbyView({ code }: { code: string }) {
             Players
           </p>
           <p className="text-xs text-gray-400">
-            {MOCK_PLAYERS.length} / {MAX_PLAYERS}
+            {players.length} / {MAX_PLAYERS}
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
-          {MOCK_PLAYERS.map((player) => (
+          {players.map((player) => (
             <div
               key={player.id}
               className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm"
@@ -70,10 +95,27 @@ export function LobbyView({ code }: { code: string }) {
               >
                 {player.display_name[0].toUpperCase()}
               </div>
-              <span className="font-semibold text-gray-800 flex-1">
-                {player.display_name}
-              </span>
-              {player.is_me && (
+
+              {player.is_me && editingId === player.id ? (
+                <input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={handleKeyDown}
+                  maxLength={20}
+                  className="flex-1 font-semibold text-gray-800 bg-transparent border-b-2 border-kok-blue outline-none"
+                />
+              ) : (
+                <span
+                  className={`font-semibold text-gray-800 flex-1 ${player.is_me ? "cursor-pointer hover:text-kok-blue transition-colors" : ""}`}
+                  onClick={() => player.is_me && startEditing(player.id, player.display_name)}
+                >
+                  {player.display_name}
+                </span>
+              )}
+
+              {player.is_me && editingId !== player.id && (
                 <span className="text-xs text-gray-400 font-medium">(you)</span>
               )}
               {player.is_host && (
@@ -85,7 +127,7 @@ export function LobbyView({ code }: { code: string }) {
           ))}
         </div>
 
-        {MOCK_PLAYERS.length < MAX_PLAYERS && (
+        {players.length < MAX_PLAYERS && (
           <p className="text-center text-xs text-gray-400 italic pt-1">
             Share the room code to invite more players
           </p>
@@ -96,7 +138,7 @@ export function LobbyView({ code }: { code: string }) {
       <div className="flex flex-col items-center gap-3 w-full max-w-xs">
         {IS_HOST ? (
           <button
-            disabled={MOCK_PLAYERS.length < 2}
+            disabled={players.length < 2}
             className="w-full bg-kok-green hover:brightness-110 hover:-translate-y-1 hover:shadow-lg active:translate-y-0.5 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xl uppercase py-3.5 rounded-2xl shadow-md transition-all select-none"
           >
             Start Game
