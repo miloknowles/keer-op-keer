@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Avatar from 'boring-avatars'
 import { useRoomContext } from '@/lib/context/room'
 import { createClient } from '@/lib/supabase/client'
+import { NAME_KEY } from '@/lib/utils'
 
 const SEAT_COLORS: [string, string][] = [
   ['#E8437C', '#ffffff'], // pink
@@ -47,6 +48,7 @@ export default function LobbyPage() {
         .from('room_players')
         .update({ display_name: trimmed })
         .eq('id', me.id)
+      localStorage.setItem(NAME_KEY, trimmed)
       // Realtime UPDATE event updates the context for all clients
     }
     setEditingId(null)
@@ -129,16 +131,19 @@ export default function LobbyPage() {
                     className="flex-1 min-w-0 font-semibold text-gray-800 bg-transparent border-b-2 border-kok-blue outline-none"
                   />
                 ) : (
-                  <span
-                    className={`font-semibold text-gray-800 flex-1 ${isMe ? 'cursor-pointer hover:text-kok-blue transition-colors' : ''}`}
-                    onClick={() => isMe && startEditing(player.id, player.display_name)}
-                  >
+                  <span className="font-semibold text-gray-800 flex-1">
                     {player.display_name}
                   </span>
                 )}
 
                 {isMe && editingId !== player.id && (
-                  <span className="text-xs text-gray-400 font-medium">(you)</span>
+                  <button
+                    onClick={() => startEditing(player.id, player.display_name)}
+                    className="text-xs text-gray-400 hover:text-kok-blue transition-colors shrink-0 flex items-center gap-1"
+                    title="Edit your name"
+                  >
+                    <span>✎</span>
+                  </button>
                 )}
                 {isPlayerHost && (
                   <span className="text-xs font-bold text-kok-orange bg-kok-orange/10 px-2 py-0.5 rounded-full">
