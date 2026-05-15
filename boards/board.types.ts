@@ -6,7 +6,7 @@ export type Color = "pink" | "orange" | "yellow" | "green" | "blue";
 export type CellSpecial = "star" | "box";
 
 // Item awarded to the first player to complete a row.
-// "bomb"  — held item; spend on your turn to cross off any 2×2 block anywhere.
+// "bomb"  — must be played immediately on the same turn; cross off any 2×2 block anywhere.
 // "heart" — advances the player's heart track by 1.
 // "box"   — grants the player 1 box on their box track.
 export type RowItem = "box" | "bomb" | "heart";

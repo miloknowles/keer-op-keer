@@ -21,8 +21,8 @@ Each player has an identical score sheet — a **7 row × 15 column** colored gr
 The grid contains cells in **5 colors**: pink, orange, yellow, green, blue. Cells are irregularly distributed. Some cells contain special icons:
 
 - **Star cells** (☆) — if not crossed off at game end, each costs **−2 points**
-- **Box cells** (!) — if not crossed off at game end, each scores **+1 point**
-- **Heart cells** (♥) — crossing one off unlocks an additional bonus for that column
+- **Box cells** (!) — when crossed off, grants 1 box on the player's box track
+- **Heart cells** (♥) — when crossed off, advances the player's heart track by 1
 
 ### Cell Placement Rules
 
@@ -55,15 +55,11 @@ Each player's sheet has a row of **9 boxes** at the bottom. Players start with *
 
 The box track caps at 9. Uncircled boxes are unearned; there is no end-game scoring for boxes.
 
-### Usable Items
+### Bombs
 
-Players can earn **bomb** items from completing rows. Bombs are held and can be spent on any future turn.
+Bombs are earned when a player is first to complete a row whose item is a bomb. **Bombs must be played immediately** on the same turn they are earned — they cannot be held. After crossing off the cells that completed the row, the player immediately chooses a 2×2 block anywhere on the board and crosses those off too, before their turn ends.
 
-| Item | Effect when used |
-|---|---|
-| **Bomb** | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
-
-> **Still to verify:** whether bombs can be spent on any turn or only when you are the active player.
+The bomb from the special die works the same way: it is applied immediately as part of using the special die.
 
 ### Wildcard Track
 
@@ -90,8 +86,8 @@ The `✕` (black X) is a wildcard: the player declares any color when making the
 | Face | Count | Effect |
 |---|---|---|
 | Heart | 2 | Advance your heart track by 1 |
-| Floodfill | 1 | Cross off an entire connected section of one color (however large) |
-| Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row; each must touch your existing region but they don't need to touch each other |
+| Sweep | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region. Diagonal does not count. |
+| Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row. All 3 cells must each individually be orthogonally adjacent to your existing region. |
 | Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
 | Two stars | 1 | Cross off any 2 star cells anywhere on your sheet |
 
@@ -102,14 +98,16 @@ Wildcard rules apply equally to the active player and non-active players. When a
 Each round, one player is the **active player**. Turns rotate clockwise.
 
 1. **Active player rolls** all 7 dice.
-2. **Active player chooses** one of:
-   - **1 color die + 1 number die** → cross off that many cells of that color (adjacency rule applies)
-   - **Spend 1 box** → use the special die result instead (requires ≥1 box on the track)
-   - **Spend a held bomb** → use a previously earned bomb item
-3. **All other players** each independently choose **2 dice** and apply that color+number combo to their own sheet.
+2. **Active player chooses exactly one of:**
+   - **Color + number** — pick 1 color die and 1 number die, cross off that many cells of that color (adjacency rule applies). Either or both dice may be wildcards, costing 1 wildcard slot each.
+   - **Special die** — spend 1 box to use the special die result instead.
+   - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend).
+3. **All other players** each independently choose **2 dice** (1 color + 1 number) from the remaining pool and apply the result to their own sheet. Same wildcard rules apply. A non-active player may also pass if they have no legal move.
 4. Play passes to the next active player.
 
-**Open dice rounds (rounds 1 and 2):** For the first two rounds of the game, all players — active and non-active — may pick freely from all 7 dice. There is no exclusive first pick and no restricted remaining pool. Starting from round 3, the active player's chosen dice are excluded from what non-active players may pick.
+**If a bomb is earned mid-turn** (by completing a row whose item is a bomb), the player must immediately choose and cross off a 2×2 block before their turn ends. This is resolved as part of the same pick submission.
+
+**Open dice rounds (rounds 1 and 2):** For the first two rounds, all players pick freely from all 7 dice — there is no exclusive first pick and no restricted remaining pool. Starting from round 3, the active player's chosen dice are excluded from what non-active players may pick.
 
 > In rounds 3+, non-active players are not competing with each other — each independently reads from the same remaining pool.
 
@@ -183,19 +181,27 @@ All routes are under `/api/game/`. Authentication is via Supabase session cookie
 
 **`POST /api/game/[code]/pick` request body:**
 ```ts
-// Active player picking color + number dice
-{ type: "color_number", color_die: 0, number_die: 2,
-  declared_color: "pink", declared_number: 3,
-  cells: ["A-P", "A-Q", "A-R"] }  // cells the player intends to cross off
+// Picking color + number (wildcards optional)
+{ type: "color_number",
+  color_die: 0,              // index into dice_colors (0–2)
+  number_die: 2,             // index into dice_numbers (0–2)
+  declared_color: "pink",    // player's declared value (same as die face if not wildcard)
+  declared_number: 3,        // player's declared value (same as die face if not wildcard)
+  cells: ["A-P", "A-Q", "A-R"],  // cells to cross off
+  bomb_cells: ["C-Q", "C-R", "D-Q", "D-R"]  // only present if a bomb row was completed this turn
+}
 
-// Active player spending a box to use the special die
-{ type: "special", cells: [...] }  // cells depend on which special face was rolled
+// Spending a box to use the special die
+{ type: "special",
+  cells: [...],              // cells depend on which special face was rolled
+  bomb_cells: [...]          // only present if a bomb row was completed this turn
+}
 
-// Active player spending a held bomb
-{ type: "bomb", cells: ["C-Q", "C-R", "D-Q", "D-R"] }  // must be a valid 2×2
+// Passing (no legal move available)
+{ type: "pass" }
 ```
 
-The `cells` array is included in the pick so the server can validate placement (adjacency, color match, count) in a single request rather than a separate move submission.
+The `cells` array lets the server validate placement (adjacency, color match, count) atomically. `bomb_cells` is included inline when a row completion triggered an immediate bomb — the server validates both together.
 
 ### Real-Time Sync
 
@@ -262,7 +268,6 @@ room_players (
   crossed_cells   text[] NOT NULL DEFAULT '{}',      -- cell keys e.g. {"A-P","B-Q"}
   hearts          int NOT NULL DEFAULT 0,            -- heart track progress (0–5)
   boxes           int NOT NULL DEFAULT 1,            -- available boxes on box track (0–9)
-  bombs           int NOT NULL DEFAULT 0,            -- held bomb items
   wildcards       int NOT NULL DEFAULT 6,            -- remaining wildcard uses (starts at 6, only decreases)
 
   -- End-game (populated when status → 'finished')
@@ -302,19 +307,22 @@ room_history (
   dice_numbers  text[3] NOT NULL,   -- e.g. {"3","?","5"}           — "?" = wildcard (text to allow "?")
   dice_special  text NOT NULL,      -- "heart"|"floodfill"|"three_in_a_row"|"bomb"|"two_stars"
 
-  -- Active player's choice. If a wildcard die was picked, declared_color/declared_number
-  -- record the player's chosen value; otherwise they match the die face.
+  -- Active player's choice. declared_color/declared_number record the chosen value
+  -- for wildcard dice; for non-wildcards they match the die face.
+  -- bomb_cells is only present if a row completion triggered an immediate bomb.
   active_pick   jsonb NOT NULL,
     -- { type: "color_number", color_die: 0, number_die: 2,
-    --   declared_color: "pink", declared_number: 3 }
-    -- { type: "special" }          ← spent a box to use the special die
-    -- { type: "bomb" }             ← spent a held bomb item
+    --   declared_color: "pink", declared_number: 3,
+    --   cells: ["A-P","A-Q","A-R"], bomb_cells: ["C-Q","C-R","D-Q","D-R"] }
+    -- { type: "special", cells: [...], bomb_cells: [...] }
+    -- { type: "pass" }
 
   -- Each non-active player's pick (keyed by room_players.id).
-  -- Includes declared values for any wildcard dice.
+  -- Same structure as active_pick but type is always "color_number" or "pass".
   player_picks  jsonb NOT NULL DEFAULT '{}',
-    -- { "<player_id>": { color_die: 1, number_die: 0,
-    --                    declared_color: "blue", declared_number: 1 }, ... }
+    -- { "<player_id>": { type: "color_number", color_die: 1, number_die: 0,
+    --                    declared_color: "blue", declared_number: 1,
+    --                    cells: [...], bomb_cells: [...] }, ... }
 
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (room_id, round_number)
@@ -340,6 +348,29 @@ room_history (
 | `room_chats` | INSERT | Append message to chat |
 | `rooms` | UPDATE | Handle status transitions (lobby → in progress → finished) |
 
+### Frontend Routing
+
+Each game phase has its own route. The shared layout holds the Supabase Realtime subscription and provides room + player state to all child pages via React context — so the channel is created once and survives the lobby → game navigation without reconnecting.
+
+```
+/                          Landing page — create or join a room
+/room/[code]               Redirects to /room/[code]/lobby or /room/[code]/game
+                           based on current rooms.status from DB
+/room/[code]/lobby         Waiting room — player list, host Start button
+/room/[code]/game          Active game — board, dice, pick UI
+/room/[code]/finished      Scoring screen — final scores and breakdown
+```
+
+**Phase transitions are driven by `rooms.status`:** the shared layout subscribes to the `rooms` row. When `status` changes, every connected client navigates to the correct route simultaneously — no polling, no coordinated client push.
+
+```
+lobby  ──(host calls /start)──►  in_progress  ──(server detects 2 colors done)──►  finished
+  │                                   │                                                │
+/lobby                             /game                                          /finished
+```
+
+**Suggestion:** on `/room/[code]` (the root), do a lightweight server-side fetch of `rooms.status` and redirect immediately — this means a shared link always lands in the right place even for late joiners or reconnects.
+
 ### Directory Structure
 
 ```
@@ -349,7 +380,14 @@ keer-op-keer/
 │       ├── app/                 # App Router pages + API routes
 │       │   ├── page.tsx         # Landing / create or join room
 │       │   ├── room/[code]/
-│       │   │   └── page.tsx     # Game room (lobby + game + scoring)
+│       │   │   ├── layout.tsx   # Shared: Supabase channel, RoomContext provider
+│       │   │   ├── page.tsx     # Redirects to /lobby or /game based on rooms.status
+│       │   │   ├── lobby/
+│       │   │   │   └── page.tsx # Waiting room — player list, host Start button
+│       │   │   ├── game/
+│       │   │   │   └── page.tsx # Active game — board, dice, pick UI
+│       │   │   └── finished/
+│       │   │       └── page.tsx # Scoring screen — final scores and breakdown
 │       │   ├── api/
 │       │   │   ├── rooms/
 │       │   │   │   ├── route.ts            # POST /api/rooms
@@ -366,6 +404,8 @@ keer-op-keer/
 │       │   └── ui/              # shadcn primitives
 │       ├── lib/
 │       │   ├── supabase/        # browser client, server client, middleware
+│       │   ├── context/
+│       │   │   └── room.tsx     # RoomContext — room row, players[], current user
 │       │   └── game/            # pure game logic (no React)
 │       │       ├── sheet.ts     # grid layout, color map, special cell positions
 │       │       ├── dice.ts      # dice types, roll simulation, special die faces
@@ -388,8 +428,6 @@ keer-op-keer/
 
 1. **Exact grid color layout** — need to map each (col, row) cell to its color; currently a placeholder in `kok2-standard.json`
 2. **Star / box / heart cell counts and positions** — how many of each special cell, and where
-3. **Floodfill scope** — does it fill all cells of that color everywhere on the board, or just one contiguous region?
-4. **Three-in-a-row adjacency** — must all 3 cells individually touch the existing region, or just at least one of the 3?
-5. **Item usage timing** — can items be played on any turn, or only when you are the active player?
-7. **Turn timer** — should non-active players have a time limit to pick their dice?
-8. **Anonymous play** — support playing without an account?
+3. **Tie-breaking** — how is a draw resolved at game end? TBD.
+4. **Turn timer** — should non-active players have a time limit to pick their dice?
+5. **Anonymous play** — support playing without an account?

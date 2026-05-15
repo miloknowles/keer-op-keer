@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { generateRoomCode } from "@/lib/utils";
 
 const ROWS = [
   {
@@ -55,12 +55,12 @@ export default function Home() {
       <p className="text-gray-600 font-medium text-lg">Roll-and-write &middot; 1–6 players</p>
 
       <div className="flex flex-col items-center gap-3">
-        <Link
-          href="/room/demo"
+        <button
+          onClick={() => router.push(`/room/${generateRoomCode()}`)}
           className="bg-orange-500 hover:bg-orange-400 active:translate-y-0.5 text-white font-bold text-xl px-14 py-3.5 rounded-xl shadow-md transition-all select-none"
         >
           New game
-        </Link>
+        </button>
 
         <p className="text-gray-500 text-sm font-medium">or</p>
 
