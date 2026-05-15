@@ -246,7 +246,7 @@ Called once when the game finishes:
 
 ---
 
-## Phase 4 — Anonymous Auth + Room Creation/Join APIs
+## Phase 4 — Anonymous Auth + Room Creation/Join APIs ✓
 
 **Goal:** The landing page actually creates rooms and adds players to them. At the end of this phase, you can open two browser tabs, create a room in one and join it in the other.
 
@@ -288,7 +288,7 @@ Update `app/src/app/page.tsx`:
 
 ---
 
-## Phase 5 — Room Layout, Context, and Lobby
+## Phase 5 — Room Layout, Context, and Lobby ✓
 
 **Goal:** `/room/[code]/lobby` shows the player list with a Start button for the host. At the end of this phase, a host can start the game and all clients navigate to `/room/[code]/game`.
 
