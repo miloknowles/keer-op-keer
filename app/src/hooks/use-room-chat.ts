@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RoomChatRow } from "@/types/game";
 
@@ -8,6 +8,7 @@ export function useRoomChat(roomId: string, playerId: string) {
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<RoomChatRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     supabase
@@ -32,7 +33,11 @@ export function useRoomChat(roomId: string, playerId: string) {
           filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as RoomChatRow]);
+          const newMessage = payload.new as RoomChatRow;
+          setMessages((prev) => [...prev, newMessage]);
+          if (newMessage.player_id !== playerId) {
+            setUnreadCount((prev) => prev + 1);
+          }
         },
       )
       .subscribe();
@@ -40,7 +45,7 @@ export function useRoomChat(roomId: string, playerId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function sendMessage(text: string) {
     if (!text) return;
@@ -49,5 +54,7 @@ export function useRoomChat(roomId: string, playerId: string) {
       .insert({ room_id: roomId, player_id: playerId, message: text });
   }
 
-  return { messages, loading, sendMessage };
+  const resetUnreadCount = useCallback(() => setUnreadCount(0), []);
+
+  return { messages, loading, sendMessage, unreadCount, resetUnreadCount };
 }

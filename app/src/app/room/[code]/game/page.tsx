@@ -11,6 +11,8 @@ import { ChatWindow } from "@/components/game/ChatWindow";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
+import { useRoomChat } from "@/hooks/use-room-chat";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 import type {
   DiceColorFace,
   DiceNumberFace,
@@ -60,6 +62,14 @@ export default function GamePage() {
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>();
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+
+  const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
+
+  useEffect(() => {
+    if (chatOpen) {
+      resetUnreadCount();
+    }
+  }, [chatOpen, resetUnreadCount]);
 
   const { presences, updatePresence } = usePresence(room.id, {
     userId: me.id,
@@ -132,7 +142,14 @@ export default function GamePage() {
   }, [presences, viewingId]);
 
   const viewing = players.find((p) => p.id === viewingId) ?? players[0];
-  const isMyBoard = viewingId === me.id;
+  const activePlayer = players.find(
+    (p) => p.seat_index === room.current_player_index,
+  );
+  const effectiveMe =
+    DEV_MULTI_SEAT && activePlayer?.user_id === me.user_id
+      ? activePlayer
+      : me;
+  const isMyBoard = viewingId === effectiveMe.id;
 
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || selectedColor === undefined || !dice) return undefined;
@@ -140,7 +157,7 @@ export default function GamePage() {
     const declaredColorFace = dice.colors[selectedColor];
     const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
     const isWild = isColorWildcard(declaredColorFace);
-    const occupiedCells = [...(me.crossed_cells as string[]), ...selectedCells];
+    const occupiedCells = [...(effectiveMe.crossed_cells as string[]), ...selectedCells];
     const occupiedSet = new Set(occupiedCells);
 
     const result = new Set<string>();
@@ -158,10 +175,7 @@ export default function GamePage() {
       }
     }
     return result;
-  }, [selectedColor, selectedNumber, selectedCells, me.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
-  const activePlayer = players.find(
-    (p) => p.seat_index === room.current_player_index,
-  );
+  }, [selectedColor, selectedNumber, selectedCells, effectiveMe.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
@@ -397,7 +411,7 @@ export default function GamePage() {
                 onSelectColor={isMyBoard ? handleColorPick : undefined}
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
               />
-            ) : me.seat_index === room.current_player_index ? (
+            ) : effectiveMe.seat_index === room.current_player_index ? (
               <button
                 onClick={handleRoll}
                 disabled={rolling}
@@ -539,12 +553,19 @@ export default function GamePage() {
       {!chatOpen && (
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed bottom-5 right-5 w-12 h-12 rounded-full bg-kok-blue text-white shadow-lg flex items-center justify-center hover:brightness-110 transition-all"
+          className={`fixed bottom-5 right-5 w-12 h-12 rounded-full bg-kok-blue text-white shadow-lg flex items-center justify-center hover:brightness-110 transition-all ${
+            unreadCount > 0 ? "animate-bounce" : ""
+          }`}
           aria-label="Open chat"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
             <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6l-4 3V4z" />
           </svg>
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </div>
+          )}
         </button>
       )}
     </div>
