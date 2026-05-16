@@ -9,7 +9,9 @@ import { SEAT_COLORS, COLOR_NAMES } from "@/lib/constants";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
 import { ResourceTracks } from "@/components/game/ResourceTracks";
+import { ColorBonuses } from "@/components/game/ColorBonuses";
 import { ChatWindow } from "@/components/game/ChatWindow";
+import { HistoryPanel } from "@/components/game/HistoryPanel";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
@@ -44,6 +46,7 @@ export default function GamePage() {
 
   const [viewingId, setViewingId] = useState(me.id);
   const [chatOpen, setChatOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>();
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>();
@@ -461,7 +464,7 @@ export default function GamePage() {
               onClick={handleAdvanceRound}
               className="px-3 py-1 rounded-lg bg-kok-green text-white text-sm font-semibold hover:opacity-90 transition-opacity"
             >
-              Next round →
+              Next round
             </button>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -526,7 +529,7 @@ export default function GamePage() {
             </div>
 
             {/* Resource tracks for viewed player */}
-            <div className="bg-white rounded-xl shadow-sm px-4 py-3">
+            <div className="bg-white rounded-xl shadow-sm px-4 py-3 flex flex-col gap-4">
               <ResourceTracks
                 hearts={viewing.hearts}
                 heartSize={scoring.heartTrack.size}
@@ -536,6 +539,13 @@ export default function GamePage() {
                 wildcards={viewing.wildcards}
                 wildcardStart={scoring.wildcardTrack.starting}
               />
+              <div className="pt-3 border-t border-gray-100">
+                <ColorBonuses
+                  config={boardConfig}
+                  viewingCrossedCells={viewing.crossed_cells}
+                  allPlayersCrossedCells={players.map((p) => p.crossed_cells)}
+                />
+              </div>
             </div>
           </div>
         </main>
@@ -609,6 +619,20 @@ export default function GamePage() {
                 );
               })}
             </div>
+          </div>
+
+          {/* History toggle */}
+          <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              History
+            </div>
+            <button
+              onClick={() => setHistoryOpen((prev) => !prev)}
+              className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
+              aria-label={historyOpen ? "Close history" : "Open history"}
+            >
+              {historyOpen ? "Hide" : "Show"}
+            </button>
           </div>
 
           {/* Dice roll */}
@@ -779,6 +803,17 @@ export default function GamePage() {
               </button>
             </div>
           )}
+        </aside>
+
+        {/* History column — always mounted to preserve subscription */}
+        <aside
+          className={`w-64 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden ${historyOpen ? "" : "hidden"}`}
+        >
+          <HistoryPanel
+            roomId={room.id}
+            players={players}
+            onClose={() => setHistoryOpen(false)}
+          />
         </aside>
 
         {/* Chat column — always mounted to preserve messages and subscription */}
