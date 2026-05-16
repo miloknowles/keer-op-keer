@@ -1,8 +1,8 @@
 # Keer op Keer 2 — Game & Project Spec
 
 Reference image: `docs/keer_op_keer_2.jpg`  
-Board config: `boards/kok2-standard.json` (authoritative for all numeric values)  
-Board types: `boards/board.types.ts`
+Board config: `app/src/boards/kok2-standard.json` (authoritative for all numeric values)  
+Board types: `app/src/boards/board.types.ts`
 
 ## Overview
 
@@ -183,9 +183,8 @@ All routes are under `/api/game/`. Authentication is via Supabase session cookie
 | `POST` | `/api/rooms/[code]/join` | Any authed user | Join a room as a player |
 | `POST` | `/api/rooms/[code]/start` | Host only | Transition `lobby → in_progress`; rolls first dice |
 | `POST` | `/api/rooms/[code]/roll` | Active player | Roll all 7 dice; writes to `room_history` |
-| `POST` | `/api/rooms/[code]/pick` | Any player in room | Submit dice pick + declared wildcard values; writes pick to `room_history` (atomic JSONB merge for non-active players), updates `room_players` sheet state |
+| `POST` | `/api/rooms/[code]/pick` | Any player in room | Submit dice pick + declared wildcard values; writes pick to `room_history` (atomic JSONB merge for non-active players), updates `room_players` sheet state; detects game-end and transitions to `finished` inline |
 | `POST` | `/api/rooms/[code]/advance` | Any player in room | Advance to next round once all picks are in; idempotent via conditional update |
-| `POST` | `/api/rooms/[code]/finish` | Server-triggered | Transition `in_progress → finished`; compute and write final scores |
 
 **`POST /api/game/[code]/pick` request body:**
 ```ts
@@ -325,10 +324,8 @@ keer-op-keer/
 │       │   │   ├── page.tsx     # Redirects to /lobby or /game based on rooms.status
 │       │   │   ├── lobby/
 │       │   │   │   └── page.tsx # Waiting room — player list, host Start button
-│       │   │   ├── game/
-│       │   │   │   └── page.tsx # Active game — board, dice, pick UI
-│       │   │   └── finished/
-│       │   │       └── page.tsx # Scoring screen — final scores and breakdown
+│       │   │   └── game/
+│       │   │       └── page.tsx # Active game — board, dice, pick UI
 │       │   ├── api/
 │       │   │   └── rooms/
 │       │   │       ├── route.ts              # POST /api/rooms
@@ -336,12 +333,15 @@ keer-op-keer/
 │       │   │           ├── join/route.ts     # POST /api/rooms/[code]/join
 │       │   │           ├── start/route.ts    # POST /api/rooms/[code]/start
 │       │   │           ├── roll/route.ts     # POST /api/rooms/[code]/roll
-│       │   │           ├── pick/route.ts     # POST /api/rooms/[code]/pick
+│       │   │           ├── pick/route.ts     # POST /api/rooms/[code]/pick (also handles game-end)
 │       │   │           ├── advance/route.ts  # POST /api/rooms/[code]/advance
-│       │   │           └── players/route.ts  # GET  /api/rooms/[code]/players
+│       │   │           └── players/[playerId]/route.ts  # DELETE /api/rooms/[code]/players/[playerId]
 │       │   └── layout.tsx
+│       ├── boards/              # board configuration files
+│       │   ├── board.types.ts   # TypeScript types for BoardConfig
+│       │   └── kok2-standard.json  # standard KoK2 board (authoritative values)
 │       ├── components/
-│       │   ├── game/            # ScoreSheet, Cell, DiceRoller, DicePicker, etc.
+│       │   ├── game/            # ScoreSheet, GameDice, ResourceTracks, ColorBonuses, HistoryPanel, ChatWindow
 │       │   └── ui/              # shadcn primitives
 │       ├── lib/
 │       │   ├── supabase/        # browser client, server client, middleware
@@ -351,15 +351,13 @@ keer-op-keer/
 │       │       ├── sheet.ts     # grid layout, color map, special cell positions
 │       │       ├── dice.ts      # dice types, roll simulation, special die faces
 │       │       ├── rules.ts     # validate a move (adjacency, color match, count)
+│       │       ├── effects.ts   # apply pick effects (hearts, boxes, completions, column_heart_bonuses)
 │       │       └── scoring.ts   # compute final score from sheet state
 │       ├── hooks/
 │       │   └── use-presence.ts  # usePresence — Supabase Realtime Presence wrapper
 │       └── types/
 │           ├── game.ts          # shared game TypeScript types
 │           └── presence.ts      # PlayerPresence, CursorPresence types
-├── boards/                      # board configuration files
-│   ├── board.types.ts           # TypeScript types for BoardConfig
-│   └── kok2-standard.json       # standard KoK2 board (authoritative values)
 ├── supabase/                    # migrations, seed, config
 └── docs/
     ├── SPEC.md

@@ -546,16 +546,37 @@ describe("validateSpecialPick — three_in_a_row", () => {
     expect((result as { valid: false; error: string }).error).toMatch(/row/i);
   });
 
-  it("rejects wrong cell count", () => {
+  it("rejects 0 cells", () => {
     const player = makePlayer({ crossed_cells: ["H-P"] });
     const pick: SpecialPick = {
       type: "special",
-      cells: ["G-P", "I-P"], // only 2
+      cells: [],
     };
     const roll = makeRoll({ special: "three_in_a_row" });
     const result = validateSpecialPick(config, pick, roll, player);
     expect(result.valid).toBe(false);
-    expect((result as { valid: false; error: string }).error).toMatch(/3/i);
+    expect((result as { valid: false; error: string }).error).toMatch(/1/i);
+  });
+
+  it("rejects more than 3 cells", () => {
+    const player = makePlayer({ crossed_cells: ["H-P"] });
+    const pick: SpecialPick = {
+      type: "special",
+      cells: ["G-P", "I-P", "H-Q", "I-Q"], // 4 cells
+    };
+    const roll = makeRoll({ special: "three_in_a_row" });
+    const result = validateSpecialPick(config, pick, roll, player);
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts 1 or 2 cells (up to 3 allowed)", () => {
+    const player = makePlayer({ crossed_cells: ["H-P"] });
+    for (const cells of [["G-P"], ["G-P", "I-P"]]) {
+      const pick: SpecialPick = { type: "special", cells };
+      const roll = makeRoll({ special: "three_in_a_row" });
+      const result = validateSpecialPick(config, pick, roll, player);
+      expect(result.valid).toBe(true);
+    }
   });
 });
 

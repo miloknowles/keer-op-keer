@@ -449,7 +449,7 @@ export default function GamePage() {
     switch (dice.special) {
       case "heart": return true;
       case "fill": return selectedCells.length > 0;
-      case "three_in_a_row": return selectedCells.length === 3;
+      case "three_in_a_row": return selectedCells.length >= 1 && selectedCells.length <= 3;
       case "bomb": return selectedCells.length === 4;
       case "two_stars": return selectedCells.length === 2;
       default: return false;
@@ -468,7 +468,9 @@ export default function GamePage() {
             : "Click a cell to fill its connected color region";
         case "three_in_a_row": {
           const rem = 3 - selectedCells.length;
-          return rem > 0 ? `Pick ${rem} more adjacent cell${rem === 1 ? "" : "s"} in the same row` : null;
+          if (selectedCells.length === 0) return "Pick 1–3 adjacent cells in the same row";
+          if (rem > 0) return `Confirm, or pick ${rem} more cell${rem === 1 ? "" : "s"} in the row`;
+          return null;
         }
         case "bomb": {
           const rem = 4 - selectedCells.length;

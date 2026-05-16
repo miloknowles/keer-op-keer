@@ -219,8 +219,8 @@ export function validateSpecialPick(
     }
 
     case "three_in_a_row": {
-      if (cells.length !== 3)
-        return fail("three_in_a_row requires exactly 3 cells");
+      if (cells.length < 1 || cells.length > 3)
+        return fail("three_in_a_row requires 1–3 cells");
       const rows = cells.map((k) => k.split("-")[1]);
       if (new Set(rows).size !== 1)
         return fail("three_in_a_row cells must all be in the same row");
@@ -488,9 +488,11 @@ export function getValidCells(
   for (const [key, cell] of Object.entries(config.cells)) {
     if (occupiedSet.has(key)) continue;
     if (effectiveColor !== undefined && cell.color !== effectiveColor) continue;
-    if (isValidPlacement(config, key, occupiedCells)) {
-      if (canSelectMore) result.add(key);
-    }
+    if (!isValidPlacement(config, key, occupiedCells)) continue;
+    // When cells are already selected, only show cells adjacent to the selection
+    // so the group stays contiguous and the backend contiguity check won't fire.
+    if (selectedCells.length > 0 && !isAdjacentToRegion(config, key, selectedCells)) continue;
+    if (canSelectMore) result.add(key);
   }
   return result;
 }

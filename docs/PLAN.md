@@ -37,9 +37,10 @@ room_players (
   seat_index int NOT NULL,
   crossed_cells text[] NOT NULL DEFAULT '{}',
   hearts int NOT NULL DEFAULT 0,
-  boxes_unlocked int NOT NULL DEFAULT 1,
-  boxes_spent int NOT NULL DEFAULT 0,
+  boxes_unlocked int NOT NULL DEFAULT 1,   -- total boxes circled/earned (starts at 1, max 9)
+  boxes_spent int NOT NULL DEFAULT 0,      -- available = boxes_unlocked - boxes_spent
   wildcards int NOT NULL DEFAULT 6,
+  column_heart_bonuses jsonb NOT NULL DEFAULT '{}',  -- per-column heart count at time of completion
   score int,
   score_breakdown jsonb,
   joined_at timestamptz NOT NULL DEFAULT now()
@@ -123,8 +124,10 @@ export interface RoomPlayerRow {
   seat_index: number
   crossed_cells: string[]
   hearts: number
-  boxes: number
+  boxes_unlocked: number   // total earned; available = boxes_unlocked - boxes_spent
+  boxes_spent: number
   wildcards: number
+  column_heart_bonuses: Record<string, number> | null  // heart count recorded per column at completion
   score: number | null
   score_breakdown: ScoreBreakdown | null
   joined_at: string
@@ -242,7 +245,17 @@ Server-authoritative validation. All functions return `{ valid: boolean; error?:
 - `validateBombCells(config, cells): ValidationResult` — validates a bomb-row triggered bomb
 - `canPass(config, roll, player, round): boolean`
 
-### 3.4 `app/src/lib/game/scoring.ts`
+### 3.4 `app/src/lib/game/effects.ts`
+
+Applied server-side after a pick is validated. Computes all side effects of crossing off cells:
+- Column completions → award box (column H) or column bonus; record `column_heart_bonuses` entry at current heart count
+- Row completions → award row item (box, bomb, heart) to the first completer; check if other players have already completed it
+- Color completions → used by pick route for game-end detection
+- Heart advances → increment `hearts`
+
+Returns a structured update for `room_players` so the pick route can apply everything atomically.
+
+### 3.5 `app/src/lib/game/scoring.ts`
 
 Called once when the game finishes:
 
@@ -355,7 +368,7 @@ Client component. Uses `RoomContext`. Shows:
 
 ---
 
-## Phase 6 — Score Sheet Component
+## Phase 6 — Score Sheet Component ✓
 
 **Goal:** Render a player's score sheet as an interactive grid before hooking up live game state. This is the visually hardest piece and benefits from being built in isolation.
 
@@ -466,16 +479,15 @@ Shows who the active player is, which players have submitted picks for this roun
 
 **Goal:** The game detects when it should end, computes scores, and shows a results screen.
 
-### 8.1 `POST /api/game/[code]/finish`
+### 8.1 Game-end detection (inline in pick route) ✓
 
-`app/src/app/api/game/[code]/finish/route.ts`
+There is no separate `/finish` endpoint. Game-end is detected and resolved inline in `POST /api/rooms/[code]/pick`:
 
-Called internally by the pick route (not directly by clients):
-
-1. Compute `ScoreBreakdown` for each player via `scoring.ts`
-2. Update each `room_players` row with `score` and `score_breakdown`
-3. Update `rooms.status = 'finished'`, `finished_at = now()`
-4. Realtime broadcasts the `rooms` update; all clients navigate to `/finished`
+1. After applying the pick effects, check if any player now has 2 completed colors
+2. Compute `ScoreBreakdown` for each player via `scoring.ts`
+3. Update each `room_players` row with `score` and `score_breakdown`
+4. Update `rooms.status = 'finished'`, `finished_at = now()`
+5. Realtime broadcasts the `rooms` update; all clients navigate to `/finished`
 
 ### 8.2 Finished page — `app/src/app/room/[code]/finished/page.tsx`
 
