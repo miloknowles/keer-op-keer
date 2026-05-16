@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
 import { useRoomChat } from "@/hooks/use-room-chat";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { toast } from "sonner";
 import type {
   DiceColorFace,
   DiceNumberFace,
@@ -252,10 +253,11 @@ export default function GamePage() {
         clearPick();
       } else {
         const body = await res.json().catch(() => ({}));
-        console.error("[handleConfirmPick]", body.error ?? res.status);
+        toast.error(body.error ?? "Failed to confirm pick");
       }
     } catch (err) {
       console.error("[handleConfirmPick] network error:", err);
+      toast.error("Network error — please try again");
     } finally {
       setConfirming(false);
     }
