@@ -50,7 +50,7 @@ export function useRoomChat(roomId: string, playerId: string) {
 
     return () => {
       mounted = false;
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [roomId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
