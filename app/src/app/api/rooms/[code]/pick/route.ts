@@ -6,13 +6,8 @@ import {
   validateSpecialPick,
   canPass,
 } from "@/lib/game/rules";
-import {
-  isRowComplete,
-  isColumnComplete,
-  colorsCompleted,
-  getCell,
-} from "@/lib/game/sheet";
-import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
+import { colorsCompleted } from "@/lib/game/sheet";
+import { computePickResult } from "@/lib/game/effects";
 import type {
   GamePick,
   DiceRoll,
@@ -192,16 +187,13 @@ export async function POST(
       );
     }
   } else {
-    const mergedPicks = {
-      ...(history.player_picks ?? {}),
-      [me.id]: pick,
-    };
-    const { error: historyErr } = await supabase
-      .from("room_history")
-      .update({ player_picks: mergedPicks })
-      .eq("id", history.id);
+    const { error: historyErr } = await supabase.rpc("merge_player_pick", {
+      p_history_id: history.id,
+      p_player_id: me.id,
+      p_pick: pick,
+    });
     if (historyErr) {
-      console.error("[pick] update player_picks failed:", historyErr);
+      console.error("[pick] merge_player_pick failed:", historyErr);
       return NextResponse.json(
         { error: historyErr.message },
         { status: 500 },
@@ -209,109 +201,27 @@ export async function POST(
     }
   }
 
-  // ── 11. Compute updated player state ──────────────────────────────────────
-  const pickedCells =
-    pick.type === "pass" ? [] : (pick.cells ?? []);
-  const bombCells =
-    pick.type !== "pass" && pick.bomb_cells ? pick.bomb_cells : [];
-  const newCrossedCells = [...me.crossed_cells, ...pickedCells, ...bombCells];
-  const prevCrossedSet = new Set(me.crossed_cells);
-
-  // Wildcard deduction
-  let newWildcards = me.wildcards;
-  if (pick.type === "color_number") {
-    if (isColorWildcard(roll.colors[pick.color_die])) newWildcards -= 1;
-    if (isNumberWildcard(roll.numbers[pick.number_die])) newWildcards -= 1;
-  }
-
-  // Box cells gained
-  const boxCellsEarned = newCrossedCells.filter(
-    (key) =>
-      !prevCrossedSet.has(key) && getCell(config, key)?.special === "box",
-  ).length;
-  let newBoxesUnlocked = me.boxes_unlocked + boxCellsEarned;
-
-  // Special pick effects
-  let newBoxesSpent = me.boxes_spent;
-  let newHearts = me.hearts;
-  if (pick.type === "special") {
-    newBoxesSpent += 1;
-    if (roll.special === "heart") {
-      newHearts = Math.min(
-        me.hearts + 1,
-        config.scoring.heartTrack.size,
-      );
-    }
-  }
-
-  // ── 12. Row completion bonuses ────────────────────────────────────────────
+  // ── 11. Load other players for row-completion bonus check ────────────────
   const { data: allPlayers } = await supabase
     .from("room_players")
     .select("id, crossed_cells")
     .eq("room_id", room.id);
-
   const otherPlayers = (allPlayers ?? []).filter((p) => p.id !== me.id);
 
-  for (const row of config.grid.rows) {
-    if (isRowComplete(config, row, me.crossed_cells)) continue;
-    if (!isRowComplete(config, row, newCrossedCells)) continue;
-    const alreadyCompletedByOther = otherPlayers.some((p) =>
-      isRowComplete(config, row, p.crossed_cells as string[]),
-    );
-    if (alreadyCompletedByOther) continue;
+  // ── 12. Compute updated player state (pure) ───────────────────────────────
+  const result = computePickResult(config, playerRow, pick, roll, otherPlayers);
 
-    const item = (config.scoring.rowItems as Record<string, string>)[row];
-    if (item === "heart") {
-      newHearts = Math.min(
-        newHearts + 1,
-        config.scoring.heartTrack.size,
-      );
-    } else if (item === "box") {
-      newBoxesUnlocked = Math.min(
-        newBoxesUnlocked + 1,
-        config.scoring.boxTrack.size,
-      );
-    }
-  }
-
-  // ── 13. Column completion → record heart bonus ─────────────────────────────
-  const currentHeartBonuses = (me.column_heart_bonuses ?? {}) as Record<
-    string,
-    number
-  >;
-  const newHeartBonuses = { ...currentHeartBonuses };
-
-  for (const col of config.grid.columns) {
-    if (col in newHeartBonuses) continue;
-    if (isColumnComplete(config, col, me.crossed_cells)) continue;
-    if (!isColumnComplete(config, col, newCrossedCells)) continue;
-    newHeartBonuses[col] = newHearts;
-    if (col === "H") {
-      newBoxesUnlocked = Math.min(
-        newBoxesUnlocked + 1,
-        config.scoring.boxTrack.size,
-      );
-    }
-  }
-
-  // ── 14. Write updated player row ──────────────────────────────────────────
+  // ── 13. Write updated player row ──────────────────────────────────────────
   const { error: playerErr } = await supabase
     .from("room_players")
-    .update({
-      crossed_cells: newCrossedCells,
-      wildcards: newWildcards,
-      boxes_unlocked: newBoxesUnlocked,
-      boxes_spent: newBoxesSpent,
-      hearts: newHearts,
-      column_heart_bonuses: newHeartBonuses,
-    })
+    .update(result)
     .eq("id", me.id);
   if (playerErr) {
     console.error("[pick] update room_players failed:", playerErr);
     return NextResponse.json({ error: playerErr.message }, { status: 500 });
   }
 
-  // ── 15. Check if all players have submitted this round ────────────────────
+  // ── 14. Check if all players have submitted this round ───────────────────
   const { data: freshHistory } = await supabase
     .from("room_history")
     .select("active_pick, player_picks")
@@ -337,7 +247,7 @@ export async function POST(
       .update({
         round_number: room.round_number + 1,
         current_player_index:
-          ((room.current_player_index + 1) % (totalPlayers ?? 1)),
+          (room.current_player_index + 1) % (totalPlayers ?? 1),
       })
       .eq("id", room.id);
     if (roomErr) {
@@ -349,8 +259,8 @@ export async function POST(
     }
   }
 
-  // ── 16. Check game end condition ──────────────────────────────────────────
-  const myCompletedColors = colorsCompleted(config, newCrossedCells).length;
+  // ── 15. Check game end condition ──────────────────────────────────────────
+  const myCompletedColors = colorsCompleted(config, result.crossed_cells).length;
   if (myCompletedColors >= config.scoring.gameEnd.colorsCompleted) {
     await supabase
       .from("rooms")

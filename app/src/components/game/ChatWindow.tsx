@@ -20,11 +20,15 @@ export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
+  function handleSend() {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    sendMessage(trimmed);
+    setInput("");
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      sendMessage(input.trim());
-      setInput("");
-    }
+    if (e.key === "Enter") handleSend();
   }
 
   function resolveName(msg: RoomChatRow) {
@@ -137,10 +141,7 @@ export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
           className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-kok-blue/50 focus:border-kok-blue/50 placeholder:text-gray-300"
         />
         <button
-          onClick={() => {
-            sendMessage(input.trim());
-            setInput("");
-          }}
+          onClick={handleSend}
           disabled={!input.trim()}
           className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-kok-blue text-white disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all shrink-0"
         >

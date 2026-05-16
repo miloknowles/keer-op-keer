@@ -1,15 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { COLOR_BG } from "@/lib/constants";
 import type { BoardConfig, Color } from "@/types/game";
-
-const COLOR_BG: Record<Color, string> = {
-  p: "bg-kok-pink",
-  o: "bg-kok-orange",
-  y: "bg-kok-yellow",
-  g: "bg-kok-green",
-  b: "bg-kok-blue",
-};
 
 // JSON stores specials as flat booleans; types use special?: "star"|"box"
 type RawCell = {

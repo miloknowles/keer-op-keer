@@ -6,6 +6,7 @@ import {
   isColorComplete,
   getCellsOfColor,
   uncrossedStars,
+  getBoardColors,
 } from "./sheet";
 
 // Returns the index of the last occurrence of any item from `targets` within `arr`.
@@ -71,8 +72,7 @@ export function computeScore(
   }
 
   // Color bonuses
-  const allColors: Color[] = ["p", "o", "y", "g", "b"];
-  for (const color of allColors) {
+  for (const color of getBoardColors(config)) {
     if (!isColorComplete(config, color, player.crossed_cells)) continue;
     const colorCells = getCellsOfColor(config, color);
     const isFirst = isFirstCompleter(colorCells, player, allPlayers);

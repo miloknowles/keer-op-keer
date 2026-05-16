@@ -157,12 +157,17 @@ export function areCellsContiguous(config: BoardConfig, cells: CellKey[]): boole
   return visited.size === cells.length;
 }
 
+export function getBoardColors(config: BoardConfig): Color[] {
+  return [...new Set(Object.values(config.cells).map((c) => c.color))];
+}
+
 export function colorsCompleted(
   config: BoardConfig,
   crossed: string[],
 ): Color[] {
-  const colors: Color[] = ["p", "o", "y", "g", "b"];
-  return colors.filter((color) => isColorComplete(config, color, crossed));
+  return getBoardColors(config).filter((color) =>
+    isColorComplete(config, color, crossed),
+  );
 }
 
 export function uncrossedStars(

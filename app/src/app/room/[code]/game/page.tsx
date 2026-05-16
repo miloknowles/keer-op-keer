@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "boring-avatars";
-import { isRowComplete, isColumnComplete, isValidPlacement, getConnectedRegion, isAdjacentToRegion } from "@/lib/game/sheet";
+import { isRowComplete, isColumnComplete, getConnectedRegion } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
+import { getValidCells } from "@/lib/game/rules";
+import { SEAT_COLORS, COLOR_NAMES } from "@/lib/constants";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
 import { ResourceTracks } from "@/components/game/ResourceTracks";
@@ -22,22 +24,6 @@ import type {
   Color,
 } from "@/types/game";
 import type { PlayerPresence } from "@/types/presence";
-
-const COLOR_NAMES: Record<string, string> = {
-  p: "pink",
-  o: "orange",
-  y: "yellow",
-  g: "green",
-  b: "blue",
-};
-
-const SEAT_COLORS: [string, string][] = [
-  ["#E8437C", "#ffffff"],
-  ["#4264D4", "#ffffff"],
-  ["#E8C43A", "#ffffff"],
-  ["#2FAD50", "#ffffff"],
-  ["#E87820", "#ffffff"],
-];
 
 const SEAT_TO_COLOR: Record<number, Color> = {
   0: "p",
@@ -173,6 +159,9 @@ export default function GamePage() {
 
   const openRound = room.round_number <= 2;
   const activePick = currentHistory?.active_pick ?? null;
+  const allPicksSubmitted = !!currentHistory &&
+    !!currentHistory.active_pick &&
+    Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {}).length >= players.length - 1;
   const disabledColorDice: (0 | 1 | 2)[] = (() => {
     if (isActivePlayer || openRound) return [];
     if (!activePick) return [0, 1, 2];
@@ -188,114 +177,16 @@ export default function GamePage() {
 
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
-    const crossed = effectiveMe.crossed_cells as string[];
-    const crossedSet = new Set(crossed);
-
-    if (selectedSpecial) {
-      switch (dice.special) {
-        case "heart":
-          return new Set<string>();
-
-        case "fill": {
-          const result = new Set<string>();
-          const processed = new Set<string>();
-          for (const [key] of Object.entries(boardConfig.cells)) {
-            if (crossedSet.has(key) || processed.has(key)) continue;
-            if (!isAdjacentToRegion(boardConfig, key, crossed)) continue;
-            const cell = boardConfig.cells[key];
-            if (!cell) continue;
-            const region = getConnectedRegion(boardConfig, cell.color, key, crossed);
-            for (const k of region) { result.add(k); processed.add(k); }
-          }
-          return result;
-        }
-
-        case "three_in_a_row": {
-          if (selectedCells.length >= 3) return new Set<string>();
-          const selectedRow = selectedCells.length > 0 ? selectedCells[0].split("-")[1] : null;
-          const result = new Set<string>();
-          for (const [key] of Object.entries(boardConfig.cells)) {
-            if (crossedSet.has(key) || selectedCells.includes(key)) continue;
-            const [, row] = key.split("-");
-            if (selectedRow !== null && row !== selectedRow) continue;
-            if (!isAdjacentToRegion(boardConfig, key, crossed)) continue;
-            result.add(key);
-          }
-          return result;
-        }
-
-        case "bomb": {
-          if (selectedCells.length >= 4) return new Set<string>();
-          if (selectedCells.length === 0) {
-            const result = new Set<string>();
-            for (const [key] of Object.entries(boardConfig.cells)) {
-              if (!crossedSet.has(key)) result.add(key);
-            }
-            return result;
-          }
-          const selIndices = selectedCells.map((k) => {
-            const [col, row] = k.split("-");
-            return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
-          });
-          const minCol = Math.min(...selIndices.map(([c]) => c));
-          const maxCol = Math.max(...selIndices.map(([c]) => c));
-          const minRow = Math.min(...selIndices.map(([, r]) => r));
-          const maxRow = Math.max(...selIndices.map(([, r]) => r));
-          if (maxCol - minCol > 1 || maxRow - minRow > 1) return new Set<string>();
-          const result = new Set<string>();
-          const acMin = Math.max(0, maxCol - 1);
-          const acMax = Math.min(boardConfig.grid.columns.length - 2, minCol);
-          const arMin = Math.max(0, maxRow - 1);
-          const arMax = Math.min(boardConfig.grid.rows.length - 2, minRow);
-          for (let ac = acMin; ac <= acMax; ac++) {
-            for (let ar = arMin; ar <= arMax; ar++) {
-              const allFit = selIndices.every(([c, r]) => c >= ac && c <= ac + 1 && r >= ar && r <= ar + 1);
-              if (!allFit) continue;
-              for (let dc = 0; dc <= 1; dc++) {
-                for (let dr = 0; dr <= 1; dr++) {
-                  const key = `${boardConfig.grid.columns[ac + dc]}-${boardConfig.grid.rows[ar + dr]}`;
-                  if (!(key in boardConfig.cells)) continue;
-                  if (crossedSet.has(key) || selectedCells.includes(key)) continue;
-                  result.add(key);
-                }
-              }
-            }
-          }
-          return result;
-        }
-
-        case "two_stars": {
-          if (selectedCells.length >= 2) return new Set<string>();
-          const result = new Set<string>();
-          for (const [key, cell] of Object.entries(boardConfig.cells)) {
-            if (crossedSet.has(key) || selectedCells.includes(key)) continue;
-            if (cell.special === "star") result.add(key);
-          }
-          return result;
-        }
-      }
-    }
-
-    // color_number mode
-    if (selectedColor === undefined) return undefined;
-    const declaredColorFace = dice.colors[selectedColor];
-    const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
-    const isWild = isColorWildcard(declaredColorFace);
-    const occupiedCells = [...crossed, ...selectedCells];
-    const occupiedSet = new Set(occupiedCells);
-    const result = new Set<string>();
-    const hasNumberLimit = selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
-    const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
-    const canSelectMore = selectedCells.length < required;
-    for (const [key, cell] of Object.entries(boardConfig.cells)) {
-      if (occupiedSet.has(key)) continue;
-      if (!isWild && cell.color !== (declaredColorFace as string)) continue;
-      if (isValidPlacement(boardConfig, key, occupiedCells)) {
-        if (canSelectMore) result.add(key);
-      }
-    }
-    return result;
-  }, [selectedSpecial, selectedColor, selectedNumber, selectedCells, effectiveMe.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+    return getValidCells(
+      boardConfig,
+      effectiveMe.crossed_cells as string[],
+      dice,
+      selectedSpecial,
+      selectedColor,
+      selectedNumber,
+      selectedCells,
+    );
+  }, [isMyBoard, dice, boardConfig, effectiveMe.crossed_cells, selectedSpecial, selectedColor, selectedNumber, selectedCells]);
 
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
@@ -389,6 +280,14 @@ export default function GamePage() {
     setRolling(true);
     await fetch(`/api/rooms/${room.code}/roll`, { method: "POST" });
     setRolling(false);
+  }
+
+  async function handleAdvanceRound() {
+    const res = await fetch(`/api/rooms/${room.code}/advance`, { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to advance round");
+    }
   }
 
   function clearPick() {
@@ -557,12 +456,21 @@ export default function GamePage() {
             Round{" "}
             <span className="font-bold text-gray-800">{room.round_number}</span>
           </span>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-kok-green animate-pulse" />
-            <span className="font-medium text-kok-green">
-              {activePlayer?.display_name ?? "—"}'s turn
-            </span>
-          </div>
+          {allPicksSubmitted ? (
+            <button
+              onClick={handleAdvanceRound}
+              className="px-3 py-1 rounded-lg bg-kok-green text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+            >
+              Next round →
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-kok-green animate-pulse" />
+              <span className="font-medium text-kok-green">
+                {activePlayer?.display_name ?? "—"}'s turn
+              </span>
+            </div>
+          )}
         </div>
       </header>
 

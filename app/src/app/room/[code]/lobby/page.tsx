@@ -7,15 +7,8 @@ import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { SEAT_COLORS } from "@/lib/constants";
 import { SettingsDialog } from "./settings-dialog";
-
-const SEAT_COLORS: [string, string][] = [
-  ["#E8437C", "#ffffff"], // pink
-  ["#4264D4", "#ffffff"], // blue
-  ["#E8C43A", "#ffffff"], // yellow
-  ["#2FAD50", "#ffffff"], // green
-  ["#E87820", "#ffffff"], // orange
-];
 
 const MAX_PLAYERS = 6;
 

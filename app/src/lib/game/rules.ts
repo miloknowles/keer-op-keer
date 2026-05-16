@@ -10,9 +10,11 @@ import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
   getCell,
   getAdjacentCells,
+  isAdjacentToRegion,
   isValidPlacement,
   getConnectedRegion,
   areCellsContiguous,
+  getBoardColors,
 } from "./sheet";
 
 export type ValidationResult =
@@ -270,6 +272,37 @@ export function validateSpecialPick(
   return ok();
 }
 
+// Returns true if it's possible to place `n` contiguous cells of `color`
+// starting from the player's current region. Uses BFS from each candidate
+// starting cell to count reachable same-color uncrossed cells.
+function hasLegalColorNumberMove(
+  config: BoardConfig,
+  color: string,
+  n: number,
+  crossed: string[],
+): boolean {
+  const crossedSet = new Set(crossed);
+  for (const key of Object.keys(config.cells)) {
+    const cell = config.cells[key];
+    if (cell.color !== color || crossedSet.has(key)) continue;
+    if (!isValidPlacement(config, key, crossed)) continue;
+    // BFS through adjacent same-color uncrossed cells from this starting cell
+    const visited = new Set([key]);
+    const queue = [key];
+    while (queue.length > 0 && visited.size < n) {
+      const cur = queue.shift()!;
+      for (const nb of getAdjacentCells(config, cur)) {
+        if (visited.has(nb) || crossedSet.has(nb)) continue;
+        if (config.cells[nb]?.color !== color) continue;
+        visited.add(nb);
+        queue.push(nb);
+      }
+    }
+    if (visited.size >= n) return true;
+  }
+  return false;
+}
+
 // Returns true only when the player has no legal color+number move and no box to spend.
 export function canPass(
   config: BoardConfig,
@@ -281,6 +314,8 @@ export function canPass(
 ): boolean {
   if (player.boxes_unlocked - player.boxes_spent >= 1) return false;
 
+  const allColors = getBoardColors(config);
+
   // Try every color×number die combination
   for (let ci = 0; ci < 3; ci++) {
     for (let ni = 0; ni < 3; ni++) {
@@ -291,46 +326,24 @@ export function canPass(
       const wildcardsNeeded = (colorIsWild ? 1 : 0) + (numberIsWild ? 1 : 0);
       if (wildcardsNeeded > player.wildcards) continue;
 
-      // Colors to try
-      const colorsToTry: string[] = colorIsWild
-        ? ["p", "o", "y", "g", "b"]
-        : [colorFace];
-      // Numbers to try
+      // Apply dice restriction for rounds 3+
+      if (
+        round >= 3 &&
+        !isActivePlayer &&
+        activePick?.type === "color_number"
+      ) {
+        if (ci === activePick.color_die || ni === activePick.number_die)
+          continue;
+      }
+
+      const colorsToTry = colorIsWild ? allColors : [colorFace];
       const numbersToTry: number[] = numberIsWild
         ? [1, 2, 3, 4, 5]
         : [parseInt(numberFace)];
 
       for (const dc of colorsToTry) {
         for (const dn of numbersToTry) {
-          // Check if there are enough valid cells to place
-          const candidatePick: ColorNumberPick = {
-            type: "color_number",
-            color_die: ci as 0 | 1 | 2,
-            number_die: ni as 0 | 1 | 2,
-            declared_color: dc as import("@/boards/board.types").Color,
-            declared_number: dn,
-            cells: [],
-          };
-          // Find `dn` valid cells of color `dc` adjacent to region
-          const potentialCells = Object.keys(config.cells).filter((key) => {
-            const cell = config.cells[key];
-            return (
-              cell.color === dc &&
-              !player.crossed_cells.includes(key) &&
-              isValidPlacement(config, key, player.crossed_cells)
-            );
-          });
-          if (potentialCells.length >= dn) {
-            // A move exists — cannot pass
-            // Verify dice restriction for rounds 3+
-            if (
-              round >= 3 &&
-              !isActivePlayer &&
-              activePick?.type === "color_number"
-            ) {
-              if (ci === activePick.color_die || ni === activePick.number_die)
-                continue;
-            }
+          if (hasLegalColorNumberMove(config, dc, dn, player.crossed_cells)) {
             return false;
           }
         }
@@ -338,4 +351,139 @@ export function canPass(
     }
   }
   return true;
+}
+
+// Returns the set of cells the player can legally click given the current
+// dice roll and selection state. Returns undefined when no guidance applies
+// (color mode, no color die selected yet).
+export function getValidCells(
+  config: BoardConfig,
+  crossed: string[],
+  dice: DiceRoll,
+  selectedSpecial: boolean,
+  selectedColor: 0 | 1 | 2 | undefined,
+  selectedNumber: 0 | 1 | 2 | undefined,
+  selectedCells: string[],
+): Set<string> | undefined {
+  const crossedSet = new Set(crossed);
+
+  if (selectedSpecial) {
+    switch (dice.special) {
+      case "heart":
+        return new Set<string>();
+
+      case "fill": {
+        const result = new Set<string>();
+        const processed = new Set<string>();
+        for (const key of Object.keys(config.cells)) {
+          if (crossedSet.has(key) || processed.has(key)) continue;
+          if (!isAdjacentToRegion(config, key, crossed)) continue;
+          const cell = config.cells[key];
+          if (!cell) continue;
+          const region = getConnectedRegion(config, cell.color, key, crossed);
+          for (const k of region) {
+            result.add(k);
+            processed.add(k);
+          }
+        }
+        return result;
+      }
+
+      case "three_in_a_row": {
+        if (selectedCells.length >= 3) return new Set<string>();
+        const selectedRow =
+          selectedCells.length > 0 ? selectedCells[0].split("-")[1] : null;
+        const result = new Set<string>();
+        for (const key of Object.keys(config.cells)) {
+          if (crossedSet.has(key) || selectedCells.includes(key)) continue;
+          const [, row] = key.split("-");
+          if (selectedRow !== null && row !== selectedRow) continue;
+          if (!isAdjacentToRegion(config, key, crossed)) continue;
+          result.add(key);
+        }
+        return result;
+      }
+
+      case "bomb": {
+        if (selectedCells.length >= 4) return new Set<string>();
+        if (selectedCells.length === 0) {
+          const result = new Set<string>();
+          for (const key of Object.keys(config.cells)) {
+            if (!crossedSet.has(key)) result.add(key);
+          }
+          return result;
+        }
+        const selIndices = selectedCells.map((k) => {
+          const [col, row] = k.split("-");
+          return [
+            config.grid.columns.indexOf(col),
+            config.grid.rows.indexOf(row),
+          ] as [number, number];
+        });
+        const minCol = Math.min(...selIndices.map(([c]) => c));
+        const maxCol = Math.max(...selIndices.map(([c]) => c));
+        const minRow = Math.min(...selIndices.map(([, r]) => r));
+        const maxRow = Math.max(...selIndices.map(([, r]) => r));
+        if (maxCol - minCol > 1 || maxRow - minRow > 1) return new Set<string>();
+        const result = new Set<string>();
+        const acMin = Math.max(0, maxCol - 1);
+        const acMax = Math.min(
+          config.grid.columns.length - 2,
+          minCol,
+        );
+        const arMin = Math.max(0, maxRow - 1);
+        const arMax = Math.min(config.grid.rows.length - 2, minRow);
+        for (let ac = acMin; ac <= acMax; ac++) {
+          for (let ar = arMin; ar <= arMax; ar++) {
+            const allFit = selIndices.every(
+              ([c, r]) =>
+                c >= ac && c <= ac + 1 && r >= ar && r <= ar + 1,
+            );
+            if (!allFit) continue;
+            for (let dc = 0; dc <= 1; dc++) {
+              for (let dr = 0; dr <= 1; dr++) {
+                const key = `${config.grid.columns[ac + dc]}-${config.grid.rows[ar + dr]}`;
+                if (!(key in config.cells)) continue;
+                if (crossedSet.has(key) || selectedCells.includes(key))
+                  continue;
+                result.add(key);
+              }
+            }
+          }
+        }
+        return result;
+      }
+
+      case "two_stars": {
+        if (selectedCells.length >= 2) return new Set<string>();
+        const result = new Set<string>();
+        for (const [key, cell] of Object.entries(config.cells)) {
+          if (crossedSet.has(key) || selectedCells.includes(key)) continue;
+          if (cell.special === "star") result.add(key);
+        }
+        return result;
+      }
+    }
+  }
+
+  // color_number mode
+  if (selectedColor === undefined) return undefined;
+  const declaredColorFace = dice.colors[selectedColor];
+  const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
+  const isWild = isColorWildcard(declaredColorFace);
+  const occupiedCells = [...crossed, ...selectedCells];
+  const occupiedSet = new Set(occupiedCells);
+  const result = new Set<string>();
+  const hasNumberLimit =
+    selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
+  const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
+  const canSelectMore = selectedCells.length < required;
+  for (const [key, cell] of Object.entries(config.cells)) {
+    if (occupiedSet.has(key)) continue;
+    if (!isWild && cell.color !== (declaredColorFace as string)) continue;
+    if (isValidPlacement(config, key, occupiedCells)) {
+      if (canSelectMore) result.add(key);
+    }
+  }
+  return result;
 }
