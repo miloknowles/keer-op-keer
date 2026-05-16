@@ -87,15 +87,24 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [history]);
 
-  function describeAction(pick: GamePick, diceSpecial: string): string {
+  function describeAction(
+    pick: GamePick,
+    row: RoomHistoryRow,
+  ): string {
     if (pick.type === "color_number") {
       const p = pick as ColorNumberPick;
       const color = COLOR_DISPLAY[p.declared_color] ?? p.declared_color;
-      return `picked ${p.declared_number} ${color}`;
+      const colorIsWild = row.dice_colors[p.color_die] === "✕";
+      const numberIsWild = row.dice_numbers[p.number_die] === "?";
+      const modifiers: string[] = [];
+      if (colorIsWild) modifiers.push("wildcard color");
+      if (numberIsWild) modifiers.push("wildcard number");
+      const suffix = modifiers.length ? ` (used ${modifiers.join(" + ")})` : "";
+      return `picked ${p.declared_number} ${color}${suffix}`;
     }
     if (pick.type === "special") {
-      const special = SPECIAL_DISPLAY[diceSpecial] ?? diceSpecial;
-      return `picked ${special}`;
+      const special = SPECIAL_DISPLAY[row.dice_special] ?? row.dice_special;
+      return `picked ${special} (used box)`;
     }
     return "passed";
   }
@@ -165,7 +174,7 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
                   pick = row.player_picks[player.id] ?? null;
                 }
                 if (!pick) return null;
-                const action = describeAction(pick, row.dice_special);
+                const action = describeAction(pick, row);
                 return (
                   <div key={player.id} className="text-xs text-gray-700">
                     <span className="font-semibold">{player.display_name}</span>{" "}
