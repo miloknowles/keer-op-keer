@@ -1,40 +1,72 @@
 # Development Guide
 
-## Testing Multiplayer in Dev Mode
+## Testing Multiplayer in Dev Mode (`DEV_MULTI_SEAT`)
 
-### The Impersonation Problem
+### Overview
 
-When testing multiplayer gameplay locally, you might open two browser tabs to simulate different players. **This does not work as-is** because:
+`DEV_MULTI_SEAT` is a feature flag that lets a single browser session act as all players in a room. This avoids needing multiple browsers/devices during local development.
 
-1. Each browser tab maintains its own **Supabase session** (independent `auth.getUser()` result)
-2. API routes authenticate requests using the Supabase session cookie: `supabase.auth.getUser()`
-3. When you create a room in Tab 1, the `room_players` row is created with Tab 1's `user_id`
-4. When you open Tab 2 (a different session), it has a different `user_id`, so the pick route will not find the player in the room → "Not in room" error
+**Enable it** by adding to `.env.local`:
+```
+NEXT_PUBLIC_DEV_MULTI_SEAT=true
+```
 
-### Solution: Use Multiple Browsers or Devices
+It is only active in `NODE_ENV=development` — the flag is always false in production.
 
-To properly test multiplayer:
+### How It Works
 
-- **Option 1 (Best for local dev):** Open the app in **two different browsers** (e.g., Chrome and Firefox) or in **one private/incognito window and one normal window**. Each browser context maintains a separate Supabase session, so they will have different `user.id` values.
+All players in a room share a single `user_id` (the one Supabase auth session). Normally, API routes identify "which player am I?" using `.eq("user_id", auth_user_id)`. With multiple players sharing a `user_id`, that query would return multiple rows and fail.
 
-- **Option 2 (For remote testing):** Deploy to staging and test with actual devices/users. Each device will have its own session.
+The fix is **player disambiguation via explicit player ID**:
 
-- **Option 3 (If you really need same-browser testing):** You'd need to add dev-mode-only API endpoints that can impersonate a player ID in a room, then pass that ID to the client via query param or localStorage. This is complex and not recommended — use Option 1 instead.
+**Client (`game/page.tsx`):**
+- `effectiveMe` = whichever player's board tab is currently viewed (`viewingId`)
+- When sending a pick, the body includes `_dev_player_id: effectiveMe.id`
 
-### What Happens Under the Hood
+**API routes:**
+- When `DEV_MULTI_SEAT` is true and `_dev_player_id` is present, look up the player by `id` instead of `user_id`
+- The roll route disambiguates differently (no `_dev_player_id` needed since only the active player rolls): it adds `.eq("seat_index", room.current_player_index)` to the query
 
-1. Landing page (`/`) uses Supabase anonymous auth. Each tab gets assigned a unique anonymous `user_id`.
-2. When you join a room, a `room_players` row is inserted with your `user_id`.
-3. API routes (roll, pick, etc.) call `supabase.auth.getUser()` and look up the player row using that `user_id`.
-4. If the `user_id` is not in the room → 403 "Not in room" error.
+### Testing Flow
 
-Same-tab impersonation would require modifying the Supabase session cookie or the auth state in the client, which is fragile and breaks the real auth flow.
+1. Create a room, add 2–4 "players" (join the room multiple times in the same browser session — each join creates a separate `room_players` row under the same `user_id`)
+2. Start the game
+3. To act as a player: **click their board tab** — this sets `viewingId` and `effectiveMe` to that player
+4. The active player's tab shows "Roll Dice" → roll first
+5. Submit picks for each player by switching to their tab and clicking "Confirm Pick"
+6. Once all players have submitted, the round advances automatically
 
-### Debug Tips
+### Rules for Maintaining DEV_MULTI_SEAT Compatibility
 
-If you see "Not in room" errors:
+When writing a new API route that identifies the caller as a room player:
 
-1. Check the browser console for the error message from the API
-2. Verify you're using **different browser contexts** (check DevTools → Application → Cookies → confirm different session tokens)
-3. Refresh the page to ensure the session is loaded before interacting with the game
-4. In the Supabase dashboard, check the `room_players` table: verify both player rows exist with different `user_id` values
+1. **Import the flag**: `import { DEV_MULTI_SEAT } from "@/lib/devFlags";`
+
+2. **Parse the body early** (before the player lookup) so `_dev_player_id` is available
+
+3. **Disambiguate the player query**:
+```ts
+let meQuery = supabase
+  .from("room_players")
+  .select("...")
+  .eq("room_id", room.id);
+
+if (DEV_MULTI_SEAT && typeof rawBody._dev_player_id === "string") {
+  meQuery = meQuery.eq("id", rawBody._dev_player_id);
+} else {
+  meQuery = meQuery.eq("user_id", user.id);
+}
+```
+
+4. **On the client**, include `_dev_player_id` in any request body that acts on behalf of a specific player:
+```ts
+body: JSON.stringify({
+  ...payload,
+  ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
+})
+```
+
+### What Not to Do
+
+- **Don't** use `maybeSingle()` after `.eq("user_id", user.id)` in a new route without the DEV_MULTI_SEAT guard — it will fail silently (returns `null` or errors) when multiple players share a `user_id`.
+- **Don't** use `.limit(1)` as a workaround — it returns an arbitrary player row, not the intended one.

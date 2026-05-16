@@ -146,10 +146,11 @@ export default function GamePage() {
   const activePlayer = players.find(
     (p) => p.seat_index === room.current_player_index,
   );
-  const effectiveMe =
-    DEV_MULTI_SEAT && activePlayer?.user_id === me.user_id
-      ? activePlayer
-      : me;
+  // In DEV_MULTI_SEAT all players share one user_id, so act as whichever player
+  // is currently being viewed rather than only the active player.
+  const effectiveMe = DEV_MULTI_SEAT
+    ? (players.find((p) => p.id === viewingId) ?? me)
+    : me;
   const isMyBoard = viewingId === effectiveMe.id;
 
   const validCells = useMemo<Set<string> | undefined>(() => {
@@ -244,6 +245,7 @@ export default function GamePage() {
           declared_color: declaredColor,
           declared_number: declaredNumber,
           cells: selectedCells,
+          ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
         }),
       });
       if (res.ok) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 import {
   validateColorNumberPick,
   validateSpecialPick,
@@ -49,14 +50,29 @@ export async function POST(
     );
 
   // ── 3. Player lookup ──────────────────────────────────────────────────────
-  const { data: me } = await supabase
+  // Parse body early so DEV_MULTI_SEAT can use _dev_player_id to disambiguate
+  // when all players share one user_id.
+  let rawBody: Record<string, unknown>;
+  try {
+    rawBody = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  let meQuery = supabase
     .from("room_players")
     .select(
       "id, seat_index, crossed_cells, hearts, boxes_unlocked, boxes_spent, wildcards, column_heart_bonuses",
     )
-    .eq("room_id", room.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+    .eq("room_id", room.id);
+
+  if (DEV_MULTI_SEAT && typeof rawBody._dev_player_id === "string") {
+    meQuery = meQuery.eq("id", rawBody._dev_player_id);
+  } else {
+    meQuery = meQuery.eq("user_id", user.id);
+  }
+
+  const { data: me } = await meQuery.maybeSingle();
   if (!me)
     return NextResponse.json({ error: "Not in room" }, { status: 403 });
 
@@ -99,13 +115,8 @@ export async function POST(
     return NextResponse.json({ error: "Board not found" }, { status: 500 });
   const config = boardRow.config as unknown as BoardConfig;
 
-  // ── 7. Parse request body ─────────────────────────────────────────────────
-  let pick: GamePick;
-  try {
-    pick = (await req.json()) as GamePick;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  // ── 7. Parse pick from already-read body ──────────────────────────────────
+  const pick = rawBody as unknown as GamePick;
   if (!pick?.type)
     return NextResponse.json({ error: "Missing pick type" }, { status: 400 });
 
