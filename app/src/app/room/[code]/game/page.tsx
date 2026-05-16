@@ -171,11 +171,22 @@ export default function GamePage() {
     setSelectedCells([]);
   }
 
-  const canConfirm =
-    isMyBoard &&
-    selectedColor !== undefined &&
-    selectedNumber !== undefined &&
-    selectedCells.length > 0;
+  const canConfirm = useMemo(() => {
+    if (!isMyBoard || selectedColor === undefined || selectedNumber === undefined) {
+      return false;
+    }
+    if (!dice) return false;
+
+    const declaredNumberFace = dice.numbers[selectedNumber];
+    if (isNumberWildcard(declaredNumberFace)) {
+      // For wildcard number, just need at least 1 cell
+      return selectedCells.length > 0;
+    }
+
+    // For non-wildcard, need exactly the specified count
+    const required = parseInt(declaredNumberFace, 10);
+    return selectedCells.length === required;
+  }, [isMyBoard, selectedColor, selectedNumber, selectedCells, dice]);
 
   const hintText = useMemo<string | null>(() => {
     if (!isMyBoard || !dice) return null;
@@ -194,7 +205,7 @@ export default function GamePage() {
 
     const required = parseInt(declaredNumberFace, 10);
     const remaining = required - selectedCells.length;
-    if (remaining <= 0) return null;
+    if (remaining === 0) return null;
     return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
   }, [isMyBoard, dice, selectedColor, selectedNumber, selectedCells]);
 

@@ -98,7 +98,7 @@ Each round, one player is the **active player**. Turns rotate clockwise.
 
 1. **Active player rolls** all 7 dice.
 2. **Active player chooses exactly one of:**
-   - **Color + number** — pick 1 color die and 1 number die, cross off that many cells of that color (adjacency rule applies). Either or both dice may be wildcards, costing 1 wildcard slot each.
+   - **Color + number** — pick 1 color die and 1 number die, cross off **exactly** that many cells of that color (adjacency rule applies). The player **must** select the full count — they cannot select fewer, and no more cells become available once the count is reached. Either or both dice may be wildcards, costing 1 wildcard slot each. If a player cannot find enough adjacent cells of the declared color, they cannot make this move and must either use a special power (if they have boxes) or pass.
    - **Special die** — spend 1 box to use the special die result instead.
    - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend).
 3. **All other players** each independently choose **2 dice** (1 color + 1 number) from the remaining pool and apply the result to their own sheet. Same wildcard rules apply. A non-active player may also pass if they have no legal move.
