@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { PlayerPresence } from "@/types/presence";
 
 export function usePresence(roomId: string, myPresence: PlayerPresence) {
   const [presences, setPresences] = useState<Record<string, PlayerPresence>>({});
+  const supabaseRef = useRef(createClient());
   const channelRef = useRef<any>(null);
   const currentStateRef = useRef<PlayerPresence>(myPresence);
   const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = supabaseRef.current;
 
     const channel = supabase.channel(`presence:${roomId}`, {
       config: { presence: { key: myPresence.userId } },
