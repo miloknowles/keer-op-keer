@@ -61,3 +61,7 @@ Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not 
 **Available boxes:** `boxes_unlocked - boxes_spent` (not just `boxes_unlocked`).
 
 **Scoring first-vs-subsequent:** Determined by the index of the last cell of a group within each player's `crossed_cells` array — the player whose last cell appears at the smallest index completed the group first.
+
+## Development workflow
+
+**Do not run `npm run build` while the dev server is running** — it will crash the hot-reloading dev build. For builds during active development, use `npm run type-check` or `npm run lint` instead. Full builds should only run when the dev server is stopped.

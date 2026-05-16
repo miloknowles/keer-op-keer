@@ -10,12 +10,15 @@ import { ResourceTracks } from "@/components/game/ResourceTracks";
 import { ChatWindow } from "@/components/game/ChatWindow";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
+import { usePresence } from "@/hooks/use-presence";
 import type {
   DiceColorFace,
   DiceNumberFace,
   BoardConfig,
   RoomHistoryRow,
+  Color,
 } from "@/types/game";
+import type { PlayerPresence } from "@/types/presence";
 
 const COLOR_NAMES: Record<string, string> = {
   p: "pink",
@@ -33,6 +36,14 @@ const SEAT_COLORS: [string, string][] = [
   ["#E87820", "#ffffff"],
 ];
 
+const SEAT_TO_COLOR: Record<number, Color> = {
+  0: "p",
+  1: "b",
+  2: "y",
+  3: "g",
+  4: "o",
+};
+
 export default function GamePage() {
   const { room, me, players, board } = useRoomContext();
   const boardConfig = board.config as unknown as BoardConfig;
@@ -48,6 +59,14 @@ export default function GamePage() {
   const [selectedColor, setSelectedColor] = useState<0 | 1 | 2 | undefined>();
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>();
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
+  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+
+  const { presences, updatePresence } = usePresence(room.id, {
+    userId: me.id,
+    displayName: me.display_name,
+    color: SEAT_TO_COLOR[me.seat_index] ?? "p",
+    cursor: { cellKey: hoveredCell, boardOwnerId: viewingId },
+  });
 
   useEffect(() => {
     supabase
@@ -80,6 +99,12 @@ export default function GamePage() {
     };
   }, [room.id, room.round_number]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    updatePresence({
+      cursor: { cellKey: hoveredCell, boardOwnerId: viewingId },
+    });
+  }, [hoveredCell, viewingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dice = currentHistory
     ? {
         colors: currentHistory.dice_colors as [
@@ -95,6 +120,16 @@ export default function GamePage() {
         special: currentHistory.dice_special,
       }
     : null;
+
+  const cellCursors = useMemo(() => {
+    const result: Record<string, { color: Color; displayName: string }[]> = {};
+    for (const p of Object.values(presences)) {
+      if (!p.cursor || p.cursor.boardOwnerId !== viewingId || !p.cursor.cellKey) continue;
+      const key = p.cursor.cellKey;
+      result[key] = [...(result[key] ?? []), { color: p.color, displayName: p.displayName }];
+    }
+    return result;
+  }, [presences, viewingId]);
 
   const viewing = players.find((p) => p.id === viewingId) ?? players[0];
   const isMyBoard = viewingId === me.id;
@@ -282,6 +317,8 @@ export default function GamePage() {
                     number
                   > | null) ?? {}
                 }
+                onCellHover={setHoveredCell}
+                cellCursors={cellCursors}
               />
             </div>
 

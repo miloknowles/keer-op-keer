@@ -32,6 +32,8 @@ interface ScoreSheetProps {
   columnHeartBonuses?: Record<string, number>;
   /** When defined, uncrossed/unselected cells not in this set are dimmed and non-clickable. */
   validCells?: Set<string>;
+  onCellHover?: (cellKey: string | null) => void;
+  cellCursors?: Record<string, { color: Color; displayName: string }[]>;
 }
 
 export function ScoreSheet({
@@ -45,6 +47,8 @@ export function ScoreSheet({
   firstTakenCols = [],
   columnHeartBonuses = {},
   validCells,
+  onCellHover,
+  cellCursors = {},
 }: ScoreSheetProps) {
   const { grid, scoring } = config;
   const cells = config.cells as unknown as Record<string, RawCell>;
@@ -70,7 +74,7 @@ export function ScoreSheet({
       </div>
 
       {/* Rows */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1" onMouseLeave={() => onCellHover?.(null)}>
         {grid.rows.map((row) => {
           const rowItem = (scoring.rowItems as Record<string, string>)[row];
           const rowBonus = (scoring.rowBonuses as Record<string, number>)[row];
@@ -130,10 +134,13 @@ export function ScoreSheet({
                   !isSelected &&
                   !validCells.has(key);
 
+                const cursors = cellCursors[key] ?? [];
+
                 return (
                   <button
                     key={key}
                     onClick={isInvalid ? undefined : () => onCellClick?.(key)}
+                    onMouseEnter={() => onCellHover?.(key)}
                     className={cn(
                       "w-10 h-10 shrink-0 rounded relative flex items-center justify-center transition-all",
                       COLOR_BG[color],
@@ -154,6 +161,20 @@ export function ScoreSheet({
                       <span className="text-white font-black text-base leading-none pointer-events-none">
                         ✕
                       </span>
+                    )}
+                    {cursors.length > 0 && (
+                      <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+                        {cursors.slice(0, 3).map((cursor, idx) => (
+                          <div
+                            key={idx}
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              COLOR_BG[cursor.color]
+                            )}
+                            title={cursor.displayName}
+                          />
+                        ))}
+                      </div>
                     )}
                   </button>
                 );
