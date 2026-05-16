@@ -1,7 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function RoomPage(props: PageProps<"/room/[code]">) {
+export default async function RoomPage(props: {
+  params: Promise<{ code: string }>;
+}) {
   const { code } = await props.params;
   const supabase = await createClient();
 

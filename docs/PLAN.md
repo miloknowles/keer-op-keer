@@ -475,26 +475,26 @@ Shows who the active player is, which players have submitted picks for this roun
 
 ---
 
-## Phase 8 — Game End and Scoring Screen
+## Phase 8 — Game End and Scoring Screen ✓
 
 **Goal:** The game detects when it should end, computes scores, and shows a results screen.
 
 ### 8.1 Game-end detection (inline in pick route) ✓
 
-There is no separate `/finish` endpoint. Game-end is detected and resolved inline in `POST /api/rooms/[code]/pick`:
+There is no separate `/finish` endpoint. Game-end is detected and resolved inline in `POST /api/rooms/[code]/pick`, but only once the round is complete (all players have submitted picks for that round):
 
-1. After applying the pick effects, check if any player now has 2 completed colors
-2. Compute `ScoreBreakdown` for each player via `scoring.ts`
-3. Update each `room_players` row with `score` and `score_breakdown`
-4. Update `rooms.status = 'finished'`, `finished_at = now()`
+1. When `roundComplete`, reload all `room_players` rows in full (current player's update is already committed)
+2. Check if **any** player has ≥ 2 completed colors (not just the submitting player)
+3. If game ends: compute `ScoreBreakdown` for each player via `scoring.ts`, write `score` + `score_breakdown` to each `room_players` row, then update `rooms.status = 'finished'` / `finished_at = now()` — do **not** advance the round counter
+4. If game does not end: advance round as normal (`round_number + 1`, rotate `current_player_index`)
 5. Realtime broadcasts the `rooms` update; all clients navigate to `/finished`
 
-### 8.2 Finished page — `app/src/app/room/[code]/finished/page.tsx`
+### 8.2 Finished page — `app/src/app/room/[code]/finished/page.tsx` ✓
 
-Client component using `RoomContext`. Shows:
-- Final rankings with scores
-- Per-player score breakdown (columns, rows, colors, stars)
-- Option to return to landing and create a new game
+Server component (no RoomContext needed — game is over). Shows:
+- Ranked scoreboard: rank, player name, columns total, rows total, colors total, stars penalty, overall total
+- Color completions detail per player
+- Redirects to lobby/game if room is not yet finished
 
 ---
 
