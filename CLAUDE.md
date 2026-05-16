@@ -46,7 +46,7 @@ One path alias is configured in `tsconfig.json` and `vitest.config.ts`:
 
 - `@/*` → `app/src/*`
 
-Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not relative paths.
+Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not relative paths. Same for types and hooks: `@/types/presence`, `@/hooks/use-presence`, etc.
 
 ## Key implementation notes
 
@@ -61,6 +61,8 @@ Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not 
 **Available boxes:** `boxes_unlocked - boxes_spent` (not just `boxes_unlocked`).
 
 **Scoring first-vs-subsequent:** Determined by the index of the last cell of a group within each player's `crossed_cells` array — the player whose last cell appears at the smallest index completed the group first.
+
+**Presence system:** Realtime cursor tracking via `usePresence()` hook and Supabase Realtime Presence. The `PlayerPresence` type is extensible — add fields to `types/presence.ts` to support future indicators (e.g. "considering this color", typing state). Cursor updates are throttled to 150ms on the client. See `docs/SPEC.md` for full details.
 
 ## Development workflow
 

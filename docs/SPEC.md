@@ -259,12 +259,30 @@ See [`docs/schema.sql`](schema.sql) for the full applied schema including indexe
 
 ### Realtime Subscriptions
 
-| Table | Event | Client action |
+| Channel | Type | Client action |
 |---|---|---|
-| `room_history` | INSERT | New round: show dice result, open pick UI |
-| `room_players` | UPDATE | Re-render that player's sheet and resource tracks |
-| `room_chats` | INSERT | Append message to chat |
-| `rooms` | UPDATE | Handle status transitions (lobby → in progress → finished) |
+| `room:{roomId}` | Postgres Changes (rooms + room_players) | Handle status transitions; sync player sheets and resource tracks |
+| `chat:{roomId}` | Postgres Changes (room_chats INSERT) | Append message to chat |
+| `history:{roomId}:{roundNumber}` | Postgres Changes (room_history INSERT) | New round: show dice result, open pick UI |
+| `presence:{roomId}` | Realtime Presence | Track other players' cursor positions; render hover indicators on cells |
+
+### Presence System
+
+Players see realtime cursor indicators showing which cells other players are hovering. This improves the social experience by providing visibility into what other players are considering.
+
+**Presence payload** (`PlayerPresence`):
+- `userId`: unique player ID
+- `displayName`: player's chosen name
+- `color`: seat-based color (p/o/y/g/b) for consistent coloring
+- `cursor`: optional object with:
+  - `cellKey`: which cell is hovered (or `null` if none)
+  - `boardOwnerId`: which player's board is currently being viewed
+
+**Updates** are throttled to 150ms to avoid flooding the network. **Filtering** ensures cursors only appear on the board currently being viewed — if two players are looking at player A's board, only their cursors on A's board show up.
+
+**Rendering**: Small colored dots (1.5×1.5px) appear in the top-right corner of cells where other players have their cursor. Up to 3 dots per cell; additional cursors are silently truncated. Dots are labeled with player names on hover.
+
+This architecture is extensible: the `PlayerPresence` type can be extended with other ephemeral state (e.g. "currently considering this color", typing indicators) without changes to the core presence hook.
 
 ### Frontend Routing
 
@@ -329,8 +347,11 @@ keer-op-keer/
 │       │       ├── dice.ts      # dice types, roll simulation, special die faces
 │       │       ├── rules.ts     # validate a move (adjacency, color match, count)
 │       │       └── scoring.ts   # compute final score from sheet state
+│       ├── hooks/
+│       │   └── use-presence.ts  # usePresence — Supabase Realtime Presence wrapper
 │       └── types/
-│           └── game.ts          # shared TypeScript types
+│           ├── game.ts          # shared game TypeScript types
+│           └── presence.ts      # PlayerPresence, CursorPresence types
 ├── boards/                      # board configuration files
 │   ├── board.types.ts           # TypeScript types for BoardConfig
 │   └── kok2-standard.json       # standard KoK2 board (authoritative values)
