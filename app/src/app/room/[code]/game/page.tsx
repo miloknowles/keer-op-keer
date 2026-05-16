@@ -254,6 +254,9 @@ export default function GamePage() {
       } else {
         const body = await res.json().catch(() => ({}));
         toast.error(body.error ?? "Failed to confirm pick");
+        // Pick was already recorded — clear selection so the UI doesn't suggest
+        // the player can submit again this round.
+        if (res.status === 409) clearPick();
       }
     } catch (err) {
       console.error("[handleConfirmPick] network error:", err);

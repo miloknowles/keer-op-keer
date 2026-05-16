@@ -96,8 +96,10 @@ interface GameDiceProps {
   special: DiceSpecialFace;
   selectedColor?: 0 | 1 | 2;
   selectedNumber?: 0 | 1 | 2;
+  selectedSpecial?: boolean;
   onSelectColor?: (i: 0 | 1 | 2) => void;
   onSelectNumber?: (i: 0 | 1 | 2) => void;
+  onSelectSpecial?: () => void;
 }
 
 export function GameDice({
@@ -106,8 +108,10 @@ export function GameDice({
   special,
   selectedColor,
   selectedNumber,
+  selectedSpecial,
   onSelectColor,
   onSelectNumber,
+  onSelectSpecial,
 }: GameDiceProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -162,10 +166,14 @@ export function GameDice({
       {/* Special die */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Special Box
+          Special Die
         </div>
         <div className="flex items-center gap-2.5">
-          <Die className="bg-amber-100 text-amber-800 text-xl">
+          <Die
+            className="bg-amber-100 text-amber-800 text-xl"
+            selected={selectedSpecial}
+            onClick={onSelectSpecial}
+          >
             {SPECIAL_LABEL[special]}
           </Die>
           <span className="text-xs text-gray-500 leading-snug">
