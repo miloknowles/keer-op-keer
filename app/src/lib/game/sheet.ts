@@ -86,15 +86,19 @@ export function isAdjacentToRegion(
 }
 
 // Returns true if the cell is a valid placement target.
-// When the crossed region is empty, cells in startColumns are valid starting points.
+// startColumns (column H) are always valid regardless of the existing region.
+// All other cells require orthogonal adjacency to the existing crossed region.
 export function isValidPlacement(
   config: BoardConfig,
   key: CellKey,
   crossed: string[],
 ): boolean {
+  const [col] = key.split("-");
+  if (config.grid.startColumns.includes(col)) {
+    return true;
+  }
   if (crossed.length === 0) {
-    const [col] = key.split("-");
-    return config.grid.startColumns.includes(col);
+    return false;
   }
   return isAdjacentToRegion(config, key, crossed);
 }
@@ -128,6 +132,29 @@ export function getConnectedRegion(
   }
 
   return Array.from(visited);
+}
+
+// Check if a set of cells form a single contiguous group (connected component).
+// Only considers adjacency within the provided cells, not the full board.
+export function areCellsContiguous(config: BoardConfig, cells: CellKey[]): boolean {
+  if (cells.length <= 1) return true;
+
+  const cellSet = new Set(cells);
+  const visited = new Set<CellKey>();
+  const queue: CellKey[] = [cells[0]];
+  visited.add(cells[0]);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of getAdjacentCells(config, current)) {
+      if (cellSet.has(neighbor) && !visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return visited.size === cells.length;
 }
 
 export function colorsCompleted(

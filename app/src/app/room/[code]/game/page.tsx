@@ -171,6 +171,21 @@ export default function GamePage() {
   const availableBoxes = effectiveMe.boxes_unlocked - effectiveMe.boxes_spent;
   const canUseSpecial = isActivePlayer && availableBoxes > 0 && !!dice;
 
+  const openRound = room.round_number <= 2;
+  const activePick = currentHistory?.active_pick ?? null;
+  const disabledColorDice: (0 | 1 | 2)[] = (() => {
+    if (isActivePlayer || openRound) return [];
+    if (!activePick) return [0, 1, 2];
+    if (activePick.type === "color_number") return [activePick.color_die];
+    return [];
+  })();
+  const disabledNumberDice: (0 | 1 | 2)[] = (() => {
+    if (isActivePlayer || openRound) return [];
+    if (!activePick) return [0, 1, 2];
+    if (activePick.type === "color_number") return [activePick.number_die];
+    return [];
+  })();
+
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
     const crossed = effectiveMe.crossed_cells as string[];
@@ -704,6 +719,8 @@ export default function GamePage() {
                 onSelectColor={isMyBoard ? handleColorPick : undefined}
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
                 onSelectSpecial={isMyBoard && canUseSpecial ? handleSpecialSelect : undefined}
+                disabledColors={isMyBoard ? disabledColorDice : undefined}
+                disabledNumbers={isMyBoard ? disabledNumberDice : undefined}
               />
             ) : effectiveMe.seat_index === room.current_player_index ? (
               <button

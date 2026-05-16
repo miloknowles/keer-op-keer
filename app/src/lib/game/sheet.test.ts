@@ -99,6 +99,11 @@ describe("isValidPlacement", () => {
   it("rejects non-adjacent cells when region exists", () => {
     expect(isValidPlacement(config, "A-P", ["H-P"])).toBe(false);
   });
+
+  it("allows startColumn cells even when not adjacent to existing region", () => {
+    // H-V is not adjacent to H-P (they are far apart), but column H is always valid
+    expect(isValidPlacement(config, "H-V", ["H-P"])).toBe(true);
+  });
 });
 
 describe("isColumnComplete", () => {

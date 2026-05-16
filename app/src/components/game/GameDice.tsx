@@ -100,6 +100,8 @@ interface GameDiceProps {
   onSelectColor?: (i: 0 | 1 | 2) => void;
   onSelectNumber?: (i: 0 | 1 | 2) => void;
   onSelectSpecial?: () => void;
+  disabledColors?: (0 | 1 | 2)[];
+  disabledNumbers?: (0 | 1 | 2)[];
 }
 
 export function GameDice({
@@ -112,6 +114,8 @@ export function GameDice({
   onSelectColor,
   onSelectNumber,
   onSelectSpecial,
+  disabledColors,
+  disabledNumbers,
 }: GameDiceProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -121,22 +125,28 @@ export function GameDice({
           Color
         </div>
         <div className="flex gap-2">
-          {colors.map((face, i) => (
-            <Die
-              key={i}
-              selected={selectedColor === i}
-              onClick={
-                onSelectColor ? () => onSelectColor(i as 0 | 1 | 2) : undefined
-              }
-              className={cn(
-                "bg-white border border-gray-200",
-                COLOR_FACE_TEXT[face],
-                "font-black text-xl",
-              )}
-            >
-              ✕
-            </Die>
-          ))}
+          {colors.map((face, i) => {
+            const isDisabled = disabledColors?.includes(i as 0 | 1 | 2);
+            return (
+              <Die
+                key={i}
+                selected={selectedColor === i}
+                onClick={
+                  onSelectColor && !isDisabled
+                    ? () => onSelectColor(i as 0 | 1 | 2)
+                    : undefined
+                }
+                className={cn(
+                  "bg-white border border-gray-200",
+                  COLOR_FACE_TEXT[face],
+                  "font-black text-xl",
+                  isDisabled && "opacity-40",
+                )}
+              >
+                ✕
+              </Die>
+            );
+          })}
         </div>
       </div>
 
@@ -146,20 +156,26 @@ export function GameDice({
           Number
         </div>
         <div className="flex gap-2">
-          {numbers.map((face, i) => (
-            <Die
-              key={i}
-              selected={selectedNumber === i}
-              onClick={
-                onSelectNumber
-                  ? () => onSelectNumber(i as 0 | 1 | 2)
-                  : undefined
-              }
-              className="bg-white border border-gray-200"
-            >
-              <NumberFace value={face} />
-            </Die>
-          ))}
+          {numbers.map((face, i) => {
+            const isDisabled = disabledNumbers?.includes(i as 0 | 1 | 2);
+            return (
+              <Die
+                key={i}
+                selected={selectedNumber === i}
+                onClick={
+                  onSelectNumber && !isDisabled
+                    ? () => onSelectNumber(i as 0 | 1 | 2)
+                    : undefined
+                }
+                className={cn(
+                  "bg-white border border-gray-200",
+                  isDisabled && "opacity-40",
+                )}
+              >
+                <NumberFace value={face} />
+              </Die>
+            );
+          })}
         </div>
       </div>
 

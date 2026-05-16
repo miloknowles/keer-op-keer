@@ -7,6 +7,7 @@ import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { SettingsDialog } from "./settings-dialog";
 
 const SEAT_COLORS: [string, string][] = [
   ["#E8437C", "#ffffff"], // pink
@@ -95,7 +96,10 @@ export default function LobbyPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 bg-gray-200 min-h-screen px-4 py-12">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-8 bg-gray-200 min-h-screen px-4 py-12">
+      <div className="absolute top-4 right-4">
+        <SettingsDialog isHost={isHost} />
+      </div>
       {/* Room code */}
       <div className="flex flex-col items-center gap-1.5">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">

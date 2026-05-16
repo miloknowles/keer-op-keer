@@ -28,6 +28,7 @@ The grid contains cells in **5 colors**: pink (p), orange (o), yellow (y), green
 - Crossed cells must **always be orthogonally adjacent** to at least one already-crossed cell.
 - At the start of the game, **any cell in column H** is a valid first placement.
 - Players build outward from their crossed region over the course of the game.
+- **All selected cells in a single move must form a single contiguous group** — when picking a color + number combination, you cannot select cells from two or more separate regions, even if each region is adjacent to your existing cells. You must fill one connected area at a time.
 - **Exception — Bomb:** a bomb action crosses off any **2×2 block of cells anywhere** on the board, ignoring adjacency entirely.
 
 ### Heart Track
@@ -96,19 +97,19 @@ Wildcard rules apply equally to the active player and non-active players. When a
 
 Each round, one player is the **active player**. Turns rotate clockwise.
 
+> **Rounds 1–2 (open rounds):** All players pick freely from all 7 dice simultaneously — there is no exclusive first pick and no restricted pool. Steps 2 and 3 below both apply to all players without restriction.
+>
+> **Round 3 onwards:** The active player picks first and their chosen dice are removed from the pool. Non-active players then each independently pick from the remaining dice.
+
 1. **Active player rolls** all 7 dice.
 2. **Active player chooses exactly one of:**
-   - **Color + number** — pick 1 color die and 1 number die, cross off **exactly** that many cells of that color (adjacency rule applies). The player **must** select the full count — they cannot select fewer, and no more cells become available once the count is reached. Either or both dice may be wildcards, costing 1 wildcard slot each. If a player cannot find enough adjacent cells of the declared color, they cannot make this move and must either use a special power (if they have boxes) or pass.
+   - **Color + number** — pick 1 color die and 1 number die, cross off **exactly** that many cells of that color (adjacency rule applies). All selected cells must form a **single contiguous group** — you cannot split the selection across multiple separate regions. The player **must** select the full count — they cannot select fewer, and no more cells become available once the count is reached. Either or both dice may be wildcards, costing 1 wildcard slot each. If a player cannot find enough adjacent cells of the declared color in a single contiguous group, they cannot make this move and must either use a special power (if they have boxes) or pass.
    - **Special die** — spend 1 box to use the special die result instead.
    - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend).
-3. **All other players** each independently choose **2 dice** (1 color + 1 number) from the remaining pool and apply the result to their own sheet. Same wildcard rules apply. A non-active player may also pass if they have no legal move.
+3. **All other players** each independently choose **2 dice** (1 color + 1 number) from the remaining pool and apply the result to their own sheet. Same wildcard rules apply. A non-active player may also pass if they have no legal move. Non-active players are not competing with each other — each independently reads from the same remaining pool.
 4. Play passes to the next active player.
 
 **If a bomb is earned mid-turn** (by completing a row whose item is a bomb), the player must immediately choose and cross off a 2×2 block before their turn ends. This is resolved as part of the same pick submission.
-
-**Open dice rounds (rounds 1 and 2):** For the first two rounds, all players pick freely from all 7 dice — there is no exclusive first pick and no restricted remaining pool. Starting from round 3, the active player's chosen dice are excluded from what non-active players may pick.
-
-> In rounds 3+, non-active players are not competing with each other — each independently reads from the same remaining pool.
 
 ### Game End
 
