@@ -105,6 +105,19 @@ export default function GamePage() {
           if (row.round_number === room.round_number) setCurrentHistory(row);
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "room_history",
+          filter: `room_id=eq.${room.id}`,
+        },
+        (payload) => {
+          const row = payload.new as RoomHistoryRow;
+          if (row.round_number === room.round_number) setCurrentHistory(row);
+        },
+      )
       .subscribe();
 
     return () => {
