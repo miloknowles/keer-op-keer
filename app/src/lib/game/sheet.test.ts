@@ -10,6 +10,7 @@ import {
   isAdjacentToRegion,
   isValidPlacement,
   getConnectedRegion,
+  areCellsContiguous,
   colorsCompleted,
   uncrossedStars,
 } from "./sheet";
@@ -139,6 +140,36 @@ describe("isColorComplete", () => {
   it("returns true when every cell of the color is crossed", () => {
     const greenCells = getCellsOfColor(config, "g");
     expect(isColorComplete(config, "g", greenCells)).toBe(true);
+  });
+});
+
+describe("areCellsContiguous", () => {
+  it("returns true for a single cell", () => {
+    expect(areCellsContiguous(config, ["H-P"])).toBe(true);
+  });
+
+  it("returns true for an empty array", () => {
+    expect(areCellsContiguous(config, [])).toBe(true);
+  });
+
+  it("returns true for two adjacent cells", () => {
+    expect(areCellsContiguous(config, ["H-P", "G-P"])).toBe(true);
+  });
+
+  it("returns false for two non-adjacent cells", () => {
+    // A-P and H-P are not adjacent
+    expect(areCellsContiguous(config, ["A-P", "H-P"])).toBe(false);
+  });
+
+  it("returns true for a chain of three connected cells", () => {
+    // H-P → G-P → F-P (assuming F-P and G-P are adjacent)
+    expect(areCellsContiguous(config, ["H-P", "G-P", "F-P"])).toBe(true);
+  });
+
+  it("returns false for three cells where one is isolated", () => {
+    // H-P and A-P are not adjacent; G-P is adjacent to H-P
+    // So [H-P, G-P, A-P] is not contiguous
+    expect(areCellsContiguous(config, ["H-P", "G-P", "A-P"])).toBe(false);
   });
 });
 
