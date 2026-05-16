@@ -282,12 +282,18 @@ export default function GamePage() {
 
   function handleColorPick(i: 0 | 1 | 2) {
     setSelectedSpecial(false);
-    setSelectedColor((prev) => (prev === i ? undefined : i));
+    setSelectedColor((prev) => {
+      if (prev !== i) setSelectedCells([]);
+      return prev === i ? undefined : i;
+    });
   }
 
   function handleNumberPick(i: 0 | 1 | 2) {
     setSelectedSpecial(false);
-    setSelectedNumber((prev) => (prev === i ? undefined : i));
+    setSelectedNumber((prev) => {
+      if (prev !== i) setSelectedCells([]);
+      return prev === i ? undefined : i;
+    });
   }
 
   function handleSpecialSelect() {
