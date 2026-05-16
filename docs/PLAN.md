@@ -423,21 +423,27 @@ For the active player spending a box. Shows the special die face and renders the
 - **Bomb** — click any 2×2 block
 - **Two-stars** — click exactly 2 star cells anywhere
 
-### 7.4 Pick submission — `POST /api/game/[code]/pick`
+### 7.4 Pick submission — `POST /api/rooms/[code]/pick` ✓
 
-`app/src/app/api/game/[code]/pick/route.ts`
+`app/src/app/api/rooms/[code]/pick/route.ts`
 
 1. Verify caller is in the room, room is `in_progress`
 2. Fetch current `room_history` row for `round_number`
 3. Validate the pick via `rules.ts` (server-authoritative)
-4. Append pick to `room_history.player_picks` (or `active_pick` if caller is active player)
+4. Write pick to `room_history`: active player updates `active_pick`; non-active players use the `merge_player_pick` Postgres RPC to atomically merge their entry into `player_picks` (eliminates read-modify-write race)
 5. Update `room_players` row: append `cells` to `crossed_cells`, apply resource changes (hearts, boxes, wildcards), apply bomb cells if present
 6. Check row/column/color completions from this turn's cells → award items/bonuses, update other players if they earned a row item
-7. Check game-end condition: any player has 2 completed colors
-8. If all players have submitted picks for this round:
-   a. Advance `round_number` and `current_player_index` (wrap to 0 after last seat)
-   b. Roll new dice → insert new `room_history` row
-   c. If game-end was triggered, call `/api/game/[code]/finish` logic instead
+7. Check game-end condition: any player has 2 completed colors → set `status = 'finished'`
+
+### 7.5a Round advancement — `POST /api/rooms/[code]/advance` ✓
+
+`app/src/app/api/rooms/[code]/advance/route.ts`
+
+Any player can call this once all picks are in. The game page shows a "Next round →" button in the header when `currentHistory.active_pick` is set and `player_picks` has entries for all non-active players.
+
+1. Verify caller is in the room, room is `in_progress`
+2. Re-fetch `room_history` and confirm all picks present (returns 409 otherwise)
+3. `UPDATE rooms SET round_number = $n+1, current_player_index = ($i+1) % $total WHERE id = $id AND round_number = $n` — conditional update makes simultaneous clicks idempotent
 
 ### 7.5 Game page — `app/src/app/room/[code]/game/page.tsx`
 
@@ -547,7 +553,7 @@ Phase 6 (ScoreSheet) can begin in parallel with Phase 5 since it only needs the 
 | Risk | Mitigation |
 |---|---|
 | **Adjacency validation complexity** | Write comprehensive unit tests for `rules.ts` before using it in the API. Test edge cases: first placement (column H), Fill across non-contiguous same-color regions, bomb at board edges |
-| **Turn-advance race condition** | The pick API must check "all picks in?" atomically — use a Supabase RPC (stored procedure) or database transaction to read + write `room_history` atomically |
+| **Turn-advance race condition** | ✓ Resolved: `player_picks` merge uses the `merge_player_pick` RPC (atomic JSONB `\|\|`). Round advancement is manual via `/advance` endpoint with a conditional `WHERE round_number = $expected` update — simultaneous clicks are idempotent |
 | **Wildcard die tracking across round types** | Open dice (rounds 1–2) vs restricted pool (round 3+): the server must enforce which dice indices are available to non-active players |
 | **Bomb mid-turn** | Bomb cells must be validated together with the triggering pick — treat `bomb_cells` as part of the same atomic write |
 | **Heart timing simplification** | v1 uses final heart count for all column bonuses. This is documented; revisit if players notice the discrepancy |

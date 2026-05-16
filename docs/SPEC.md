@@ -168,7 +168,9 @@ Game state is maintained by **Next.js API routes** acting as a stateless game se
 
 Clients run the same validation logic locally (`src/lib/game/rules.ts`) for instant UI feedback, but the server is the final authority. Invalid requests are rejected with a 400 and the client re-syncs from DB.
 
-**Turn-advance is event-driven:** after writing a player's pick, the API route checks whether all players have submitted picks for the current round. If so, it atomically advances `round_number` and `current_player_index` and rolls the next dice — no cron job or persistent process needed.
+**Round advancement is manual:** after all players have submitted picks, a "Next round →" button appears in the game header for every player. Any player can click it to call `POST /api/rooms/[code]/advance`, which validates that all picks are present, then atomically increments `round_number` and rotates `current_player_index`. The conditional update (`WHERE round_number = $expected`) makes simultaneous clicks idempotent. This avoids the server-crash failure mode of auto-advancing inside the pick route.
+
+**Atomic pick storage:** non-active player picks are merged into `room_history.player_picks` via the `merge_player_pick` Postgres RPC, which does `player_picks = player_picks || $new_entry` in a single statement — eliminating the read-modify-write race condition that would otherwise occur when two non-active players submit simultaneously.
 
 ### API Routes
 
@@ -179,9 +181,10 @@ All routes are under `/api/game/`. Authentication is via Supabase session cookie
 | `POST` | `/api/rooms` | Any authed user | Create a room; returns `code` |
 | `POST` | `/api/rooms/[code]/join` | Any authed user | Join a room as a player |
 | `POST` | `/api/rooms/[code]/start` | Host only | Transition `lobby → in_progress`; rolls first dice |
-| `POST` | `/api/game/[code]/roll` | Active player | Roll all 7 dice; writes to `room_history` |
-| `POST` | `/api/game/[code]/pick` | Any player in room | Submit dice pick + declared wildcard values; writes pick to `room_history`, updates `room_players` sheet state. If all picks in, advances turn. |
-| `POST` | `/api/game/[code]/finish` | Server-triggered | Transition `in_progress → finished`; compute and write final scores |
+| `POST` | `/api/rooms/[code]/roll` | Active player | Roll all 7 dice; writes to `room_history` |
+| `POST` | `/api/rooms/[code]/pick` | Any player in room | Submit dice pick + declared wildcard values; writes pick to `room_history` (atomic JSONB merge for non-active players), updates `room_players` sheet state |
+| `POST` | `/api/rooms/[code]/advance` | Any player in room | Advance to next round once all picks are in; idempotent via conditional update |
+| `POST` | `/api/rooms/[code]/finish` | Server-triggered | Transition `in_progress → finished`; compute and write final scores |
 
 **`POST /api/game/[code]/pick` request body:**
 ```ts
@@ -326,15 +329,15 @@ keer-op-keer/
 │       │   │   └── finished/
 │       │   │       └── page.tsx # Scoring screen — final scores and breakdown
 │       │   ├── api/
-│       │   │   ├── rooms/
-│       │   │   │   ├── route.ts            # POST /api/rooms
-│       │   │   │   └── [code]/
-│       │   │   │       ├── join/route.ts   # POST /api/rooms/[code]/join
-│       │   │   │       └── start/route.ts  # POST /api/rooms/[code]/start
-│       │   │   └── game/[code]/
-│       │   │       ├── roll/route.ts       # POST /api/game/[code]/roll
-│       │   │       ├── pick/route.ts       # POST /api/game/[code]/pick
-│       │   │       └── finish/route.ts     # POST /api/game/[code]/finish
+│       │   │   └── rooms/
+│       │   │       ├── route.ts              # POST /api/rooms
+│       │   │       └── [code]/
+│       │   │           ├── join/route.ts     # POST /api/rooms/[code]/join
+│       │   │           ├── start/route.ts    # POST /api/rooms/[code]/start
+│       │   │           ├── roll/route.ts     # POST /api/rooms/[code]/roll
+│       │   │           ├── pick/route.ts     # POST /api/rooms/[code]/pick
+│       │   │           ├── advance/route.ts  # POST /api/rooms/[code]/advance
+│       │   │           └── players/route.ts  # GET  /api/rooms/[code]/players
 │       │   └── layout.tsx
 │       ├── components/
 │       │   ├── game/            # ScoreSheet, Cell, DiceRoller, DicePicker, etc.

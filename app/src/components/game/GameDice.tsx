@@ -83,7 +83,7 @@ function NumberFace({ value }: { value: string }) {
     <div className="grid grid-cols-3 grid-rows-3 gap-0.5 p-2 w-full h-full">
       {pips.map((active, i) => (
         <div key={i} className="flex items-center justify-center">
-          {active && <div className="w-2.5 h-2.5 rounded-full bg-gray-800" />}
+          {active && <div className="w-2.5 h-2.5 flex-shrink-0 aspect-square rounded-full bg-gray-800" />}
         </div>
       ))}
     </div>

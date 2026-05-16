@@ -67,3 +67,7 @@ Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not 
 ## Development workflow
 
 **Do not run `npm run build` while the dev server is running** — it will crash the hot-reloading dev build. For builds during active development, use `npm run type-check` or `npm run lint` instead. Full builds should only run when the dev server is stopped.
+
+**Dev server management:** Never start the dev server automatically. The user should start/stop it themselves. If you need to test UI changes, ask the user to start the dev server or verify they already have it running.
+
+**Git history:** Avoid jumping around in git history with operations like `git stash`, `git reset --hard`, or `git checkout .` without explicit user approval. These can confuse concurrent agents and discard work. If you need to clean up or switch context, ask the user first or use explicit commits instead.
