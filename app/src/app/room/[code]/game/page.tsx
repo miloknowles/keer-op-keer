@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "boring-avatars";
-import { isRowComplete, isColumnComplete, isValidPlacement } from "@/lib/game/sheet";
+import { isRowComplete, isColumnComplete, isValidPlacement, getConnectedRegion, isAdjacentToRegion } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
@@ -64,6 +64,7 @@ export default function GamePage() {
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [selectedSpecial, setSelectedSpecial] = useState(false);
 
   const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
 
@@ -153,23 +154,111 @@ export default function GamePage() {
     ? (players.find((p) => p.id === viewingId) ?? me)
     : me;
   const isMyBoard = viewingId === effectiveMe.id;
+  const isActivePlayer = effectiveMe.seat_index === room.current_player_index;
+  const availableBoxes = effectiveMe.boxes_unlocked - effectiveMe.boxes_spent;
+  const canUseSpecial = isActivePlayer && availableBoxes > 0 && !!dice;
 
   const validCells = useMemo<Set<string> | undefined>(() => {
-    if (!isMyBoard || selectedColor === undefined || !dice) return undefined;
+    if (!isMyBoard || !dice) return undefined;
+    const crossed = effectiveMe.crossed_cells as string[];
+    const crossedSet = new Set(crossed);
 
+    if (selectedSpecial) {
+      switch (dice.special) {
+        case "heart":
+          return new Set<string>();
+
+        case "fill": {
+          const result = new Set<string>();
+          const processed = new Set<string>();
+          for (const [key] of Object.entries(boardConfig.cells)) {
+            if (crossedSet.has(key) || processed.has(key)) continue;
+            if (!isAdjacentToRegion(boardConfig, key, crossed)) continue;
+            const cell = boardConfig.cells[key];
+            if (!cell) continue;
+            const region = getConnectedRegion(boardConfig, cell.color, key, crossed);
+            for (const k of region) { result.add(k); processed.add(k); }
+          }
+          return result;
+        }
+
+        case "three_in_a_row": {
+          if (selectedCells.length >= 3) return new Set<string>();
+          const selectedRow = selectedCells.length > 0 ? selectedCells[0].split("-")[1] : null;
+          const result = new Set<string>();
+          for (const [key] of Object.entries(boardConfig.cells)) {
+            if (crossedSet.has(key) || selectedCells.includes(key)) continue;
+            const [, row] = key.split("-");
+            if (selectedRow !== null && row !== selectedRow) continue;
+            if (!isAdjacentToRegion(boardConfig, key, crossed)) continue;
+            result.add(key);
+          }
+          return result;
+        }
+
+        case "bomb": {
+          if (selectedCells.length >= 4) return new Set<string>();
+          if (selectedCells.length === 0) {
+            const result = new Set<string>();
+            for (const [key] of Object.entries(boardConfig.cells)) {
+              if (!crossedSet.has(key)) result.add(key);
+            }
+            return result;
+          }
+          const selIndices = selectedCells.map((k) => {
+            const [col, row] = k.split("-");
+            return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
+          });
+          const minCol = Math.min(...selIndices.map(([c]) => c));
+          const maxCol = Math.max(...selIndices.map(([c]) => c));
+          const minRow = Math.min(...selIndices.map(([, r]) => r));
+          const maxRow = Math.max(...selIndices.map(([, r]) => r));
+          if (maxCol - minCol > 1 || maxRow - minRow > 1) return new Set<string>();
+          const result = new Set<string>();
+          const acMin = Math.max(0, maxCol - 1);
+          const acMax = Math.min(boardConfig.grid.columns.length - 2, minCol);
+          const arMin = Math.max(0, maxRow - 1);
+          const arMax = Math.min(boardConfig.grid.rows.length - 2, minRow);
+          for (let ac = acMin; ac <= acMax; ac++) {
+            for (let ar = arMin; ar <= arMax; ar++) {
+              const allFit = selIndices.every(([c, r]) => c >= ac && c <= ac + 1 && r >= ar && r <= ar + 1);
+              if (!allFit) continue;
+              for (let dc = 0; dc <= 1; dc++) {
+                for (let dr = 0; dr <= 1; dr++) {
+                  const key = `${boardConfig.grid.columns[ac + dc]}-${boardConfig.grid.rows[ar + dr]}`;
+                  if (!(key in boardConfig.cells)) continue;
+                  if (crossedSet.has(key) || selectedCells.includes(key)) continue;
+                  result.add(key);
+                }
+              }
+            }
+          }
+          return result;
+        }
+
+        case "two_stars": {
+          if (selectedCells.length >= 2) return new Set<string>();
+          const result = new Set<string>();
+          for (const [key, cell] of Object.entries(boardConfig.cells)) {
+            if (crossedSet.has(key) || selectedCells.includes(key)) continue;
+            if (cell.special === "star") result.add(key);
+          }
+          return result;
+        }
+      }
+    }
+
+    // color_number mode
+    if (selectedColor === undefined) return undefined;
     const declaredColorFace = dice.colors[selectedColor];
     const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
     const isWild = isColorWildcard(declaredColorFace);
-    const occupiedCells = [...(effectiveMe.crossed_cells as string[]), ...selectedCells];
+    const occupiedCells = [...crossed, ...selectedCells];
     const occupiedSet = new Set(occupiedCells);
-
     const result = new Set<string>();
-
-    // If number is selected and it's not a wildcard, limit to that count
     const hasNumberLimit = selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
     const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
     const canSelectMore = selectedCells.length < required;
-
     for (const [key, cell] of Object.entries(boardConfig.cells)) {
       if (occupiedSet.has(key)) continue;
       if (!isWild && cell.color !== (declaredColorFace as string)) continue;
@@ -178,7 +267,7 @@ export default function GamePage() {
       }
     }
     return result;
-  }, [selectedColor, selectedNumber, selectedCells, effectiveMe.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedSpecial, selectedColor, selectedNumber, selectedCells, effectiveMe.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
