@@ -30,6 +30,8 @@ interface ScoreSheetProps {
   firstTakenCols?: string[];
   /** Heart count recorded at the moment each column was completed. Key = column letter. */
   columnHeartBonuses?: Record<string, number>;
+  /** When defined, uncrossed/unselected cells not in this set are dimmed and non-clickable. */
+  validCells?: Set<string>;
 }
 
 export function ScoreSheet({
@@ -42,6 +44,7 @@ export function ScoreSheet({
   firstTakenRows = [],
   firstTakenCols = [],
   columnHeartBonuses = {},
+  validCells,
 }: ScoreSheetProps) {
   const { grid, scoring } = config;
   const cells = config.cells as unknown as Record<string, RawCell>;
@@ -121,20 +124,24 @@ export function ScoreSheet({
                 const isBox = cell.box === true || cell.special === "box";
                 const isCrossed = crossedSet.has(key);
                 const isSelected = selectedSet.has(key);
+                const isInvalid =
+                  validCells !== undefined &&
+                  !isCrossed &&
+                  !isSelected &&
+                  !validCells.has(key);
 
                 return (
                   <button
                     key={key}
-                    onClick={() => onCellClick?.(key)}
+                    onClick={isInvalid ? undefined : () => onCellClick?.(key)}
                     className={cn(
                       "w-10 h-10 shrink-0 rounded relative flex items-center justify-center transition-all",
                       COLOR_BG[color],
                       isCrossed && "brightness-90",
                       isSelected && "ring-2 ring-inset ring-black/70",
-                      onCellClick &&
-                        !isCrossed &&
-                        "hover:brightness-110 cursor-pointer",
-                      !onCellClick && "cursor-default",
+                      onCellClick && !isCrossed && !isInvalid && "hover:brightness-110 cursor-pointer",
+                      isInvalid && "opacity-30 cursor-default",
+                      !onCellClick && !isInvalid && "cursor-default",
                     )}
                   >
                     {!isCrossed && isStar && (

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "boring-avatars";
-import { isRowComplete, isColumnComplete } from "@/lib/game/sheet";
+import { isRowComplete, isColumnComplete, isValidPlacement } from "@/lib/game/sheet";
+import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
 import { ResourceTracks } from "@/components/game/ResourceTracks";
@@ -15,6 +16,14 @@ import type {
   BoardConfig,
   RoomHistoryRow,
 } from "@/types/game";
+
+const COLOR_NAMES: Record<string, string> = {
+  p: "pink",
+  o: "orange",
+  y: "yellow",
+  g: "green",
+  b: "blue",
+};
 
 const SEAT_COLORS: [string, string][] = [
   ["#E8437C", "#ffffff"],
@@ -89,6 +98,32 @@ export default function GamePage() {
 
   const viewing = players.find((p) => p.id === viewingId) ?? players[0];
   const isMyBoard = viewingId === me.id;
+
+  const validCells = useMemo<Set<string> | undefined>(() => {
+    if (!isMyBoard || selectedColor === undefined || !dice) return undefined;
+
+    const declaredColorFace = dice.colors[selectedColor];
+    const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
+    const isWild = isColorWildcard(declaredColorFace);
+    const occupiedCells = [...(me.crossed_cells as string[]), ...selectedCells];
+    const occupiedSet = new Set(occupiedCells);
+
+    const result = new Set<string>();
+
+    // If number is selected and it's not a wildcard, limit to that count
+    const hasNumberLimit = selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
+    const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
+    const canSelectMore = selectedCells.length < required;
+
+    for (const [key, cell] of Object.entries(boardConfig.cells)) {
+      if (occupiedSet.has(key)) continue;
+      if (!isWild && cell.color !== (declaredColorFace as string)) continue;
+      if (isValidPlacement(boardConfig, key, occupiedCells)) {
+        if (canSelectMore) result.add(key);
+      }
+    }
+    return result;
+  }, [selectedColor, selectedNumber, selectedCells, me.crossed_cells, dice, boardConfig, isMyBoard]); // eslint-disable-line react-hooks/exhaustive-deps
   const activePlayer = players.find(
     (p) => p.seat_index === room.current_player_index,
   );
@@ -141,6 +176,27 @@ export default function GamePage() {
     selectedColor !== undefined &&
     selectedNumber !== undefined &&
     selectedCells.length > 0;
+
+  const hintText = useMemo<string | null>(() => {
+    if (!isMyBoard || !dice) return null;
+    if (selectedColor === undefined) return "Pick a color die";
+    if (selectedNumber === undefined) return "Pick a number die";
+
+    const declaredColorFace = dice.colors[selectedColor];
+    const declaredNumberFace = dice.numbers[selectedNumber];
+    const colorName = isColorWildcard(declaredColorFace)
+      ? "any"
+      : (COLOR_NAMES[declaredColorFace] ?? declaredColorFace);
+
+    if (isNumberWildcard(declaredNumberFace)) {
+      return `Select ${colorName} squares, then confirm`;
+    }
+
+    const required = parseInt(declaredNumberFace, 10);
+    const remaining = required - selectedCells.length;
+    if (remaining <= 0) return null;
+    return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
+  }, [isMyBoard, dice, selectedColor, selectedNumber, selectedCells]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -204,6 +260,7 @@ export default function GamePage() {
                 crossedCells={viewing.crossed_cells}
                 selectedCells={isMyBoard ? selectedCells : []}
                 onCellClick={isMyBoard ? handleCellClick : undefined}
+                validCells={isMyBoard ? validCells : undefined}
                 myCompletedRows={myCompletedRows}
                 myCompletedCols={myCompletedCols}
                 firstTakenRows={firstTakenRows}
@@ -402,6 +459,11 @@ export default function GamePage() {
               >
                 Confirm Pick
               </button>
+              {hintText && (
+                <p className="text-xs text-gray-400 italic text-center leading-snug">
+                  {hintText}
+                </p>
+              )}
               <button
                 onClick={clearPick}
                 className="w-full py-1.5 rounded-lg bg-gray-100 text-gray-600 font-medium text-sm hover:bg-gray-200 transition-all"
