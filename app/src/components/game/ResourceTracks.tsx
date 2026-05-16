@@ -37,7 +37,7 @@ export function ResourceTracks({
                   : "bg-gray-100 border border-gray-300 text-gray-300",
               )}
             >
-              ♥
+              ❤️
             </div>
           ))}
         </div>

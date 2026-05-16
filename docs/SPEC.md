@@ -68,6 +68,7 @@ Each player starts with **6 wildcard slots**. Wildcards are consumed whenever a 
 - Picking one wildcard die costs **1 wildcard slot**
 - Picking both a `?` and a `✕` in the same turn costs **2 wildcard slots**
 - A player with 0 wildcards remaining **cannot pick** a wildcard die; the UI must prevent it
+- When a player selects the `✕` die, they must declare **one** color before selecting cells. All cells crossed on that turn must be that declared color — the wildcard does not permit mixing colors. The declared color is locked in by whichever cell the player clicks first.
 
 There is no way to earn additional wildcards — they are a finite resource that depletes over the game. There is no end-game scoring for unused wildcards.
 

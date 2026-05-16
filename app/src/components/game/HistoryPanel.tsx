@@ -57,7 +57,7 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "room_history",
           filter: `room_id=eq.${roomId}`,
@@ -66,7 +66,9 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
           if (!mounted) return;
           setHistory((prev) => {
             const incoming = payload.new as RoomHistoryRow;
-            if (prev.some((r) => r.id === incoming.id)) return prev;
+            if (prev.some((r) => r.id === incoming.id)) {
+              return prev.map((r) => (r.id === incoming.id ? incoming : r));
+            }
             return [...prev, incoming].sort(
               (a, b) => a.round_number - b.round_number,
             );
@@ -98,11 +100,9 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
     return "passed";
   }
 
-  const sortedPlayers = [...players].sort((a, b) => a.seat_index - b.seat_index);
-
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
+      <div className="px-3 pt-3 pb-2 shrink-0 flex items-center justify-between">
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
           History
         </div>
@@ -144,13 +144,20 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
             No rounds yet
           </p>
         )}
-        {history.map((row) => (
+        {history.map((row) => {
+          const activeFirst = [
+            ...players.filter((p) => p.id === row.active_player_id),
+            ...players
+              .filter((p) => p.id !== row.active_player_id)
+              .sort((a, b) => a.seat_index - b.seat_index),
+          ];
+          return (
           <div key={row.id} className="flex flex-col gap-1">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Round {row.round_number}
+              Round {row.round_number + 1}
             </div>
             <div className="flex flex-col gap-0.5">
-              {sortedPlayers.map((player) => {
+              {activeFirst.map((player) => {
                 let pick: GamePick | null = null;
                 if (player.id === row.active_player_id) {
                   pick = row.active_pick;
@@ -168,7 +175,8 @@ export function HistoryPanel({ roomId, players, onClose }: Props) {
               })}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

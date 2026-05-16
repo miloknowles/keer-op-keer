@@ -147,11 +147,6 @@ export async function POST(
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (pick.type === "special") {
-    if (!isActivePlayer)
-      return NextResponse.json(
-        { error: "Only the active player can use the special die" },
-        { status: 403 },
-      );
     const result = validateSpecialPick(config, pick, roll, playerRow);
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });

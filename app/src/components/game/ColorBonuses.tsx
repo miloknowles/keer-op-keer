@@ -27,10 +27,15 @@ export function ColorBonuses({
 
   return (
     <div>
-      <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+      <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
         Colors
       </div>
-      <div className="flex gap-1">
+      {/* Column headers */}
+      <div className="flex gap-1 mb-1 pl-16">
+        <div className="w-8 text-center text-[9px] font-semibold text-gray-400 uppercase">1st</div>
+        <div className="w-8 text-center text-[9px] font-semibold text-gray-400 uppercase">2nd</div>
+      </div>
+      <div className="flex flex-col gap-1">
         {colors.map((color) => {
           const cellKeys = getCellsOfColor(config, color);
           const targets = new Set(cellKeys);
@@ -50,12 +55,10 @@ export function ColorBonuses({
           const viewerIsFirst = viewerCompleted && !firstTakenByOther;
 
           return (
-            <div key={color} className="flex flex-col items-center gap-1">
-              <div
-                className="text-[9px] font-semibold text-gray-400 uppercase"
-                title={COLOR_NAMES[color]}
-              >
-                {COLOR_NAMES[color][0].toUpperCase()}
+            <div key={color} className="flex items-center gap-1">
+              {/* Color name label */}
+              <div className="w-14 text-xs font-medium text-gray-600 capitalize">
+                {COLOR_NAMES[color]}
               </div>
 
               {/* First-place square */}

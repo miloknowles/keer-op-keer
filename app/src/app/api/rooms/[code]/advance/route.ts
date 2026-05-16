@@ -27,14 +27,14 @@ export async function POST(
       { status: 409 },
     );
 
-  // Must be a player in the room
-  const { data: me } = await supabase
+  // Must be a player in the room (use count to avoid maybeSingle() failing when
+  // DEV_MULTI_SEAT is on and multiple rows share the same user_id)
+  const { count: playerCount } = await supabase
     .from("room_players")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("room_id", room.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!me)
+    .eq("user_id", user.id);
+  if (!playerCount || playerCount === 0)
     return NextResponse.json({ error: "Not in room" }, { status: 403 });
 
   // Check all picks are in for this round

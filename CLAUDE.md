@@ -25,6 +25,10 @@ docs/
 supabase/             Database migrations
 ```
 
+## Before Starting Any Task
+
+**Always read `docs/SPEC.md` first** — it contains the complete game rules, scoring mechanics, UI/UX design, and architecture overview. Understanding the game rules is essential for implementing features correctly, validating moves, and understanding the data model. Do not proceed with implementation until you have reviewed the relevant sections of the spec.
+
 ## MCP servers
 
 A Supabase MCP server is configured in `.mcp.json` at the repo root. It gives Claude direct access to the project's database, migrations, storage, and logs. Restart Claude Code to activate it if it isn't already loaded.

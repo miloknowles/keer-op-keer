@@ -471,6 +471,13 @@ export function getValidCells(
   const declaredColorFace = dice.colors[selectedColor];
   const declaredNumberFace = dice.numbers[selectedNumber ?? 0];
   const isWild = isColorWildcard(declaredColorFace);
+  // Once the first wildcard cell is chosen, lock all further picks to that color.
+  const lockedColor =
+    isWild && selectedCells.length > 0
+      ? (config.cells as Record<string, { color: string }>)[selectedCells[0]]?.color
+      : undefined;
+  const effectiveColor: string | undefined =
+    lockedColor ?? (!isWild ? (declaredColorFace as string) : undefined);
   const occupiedCells = [...crossed, ...selectedCells];
   const occupiedSet = new Set(occupiedCells);
   const result = new Set<string>();
@@ -480,7 +487,7 @@ export function getValidCells(
   const canSelectMore = selectedCells.length < required;
   for (const [key, cell] of Object.entries(config.cells)) {
     if (occupiedSet.has(key)) continue;
-    if (!isWild && cell.color !== (declaredColorFace as string)) continue;
+    if (effectiveColor !== undefined && cell.color !== effectiveColor) continue;
     if (isValidPlacement(config, key, occupiedCells)) {
       if (canSelectMore) result.add(key);
     }

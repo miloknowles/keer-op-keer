@@ -19,7 +19,7 @@ const PIPS: Record<string, boolean[]> = {
 };
 
 const SPECIAL_LABEL: Record<DiceSpecialFace, string> = {
-  heart: "♥",
+  heart: "❤️",
   fill: "≋",
   three_in_a_row: "|||",
   bomb: "💣",
@@ -47,17 +47,20 @@ function Die({
   className,
   selected,
   onClick,
+  title,
   children,
 }: {
   className?: string;
   selected?: boolean;
   onClick?: () => void;
+  title?: string;
   children: React.ReactNode;
 }) {
   const Tag = onClick ? "button" : "div";
   return (
     <Tag
       onClick={onClick}
+      title={title}
       className={cn(
         "w-12 h-12 rounded-2xl relative flex items-center justify-center shrink-0 transition-all",
         "shadow-[0_4px_0_0_rgba(0,0,0,0.18)]",
@@ -102,6 +105,7 @@ interface GameDiceProps {
   onSelectSpecial?: () => void;
   disabledColors?: (0 | 1 | 2)[];
   disabledNumbers?: (0 | 1 | 2)[];
+  disabledTooltip?: string;
 }
 
 export function GameDice({
@@ -116,6 +120,7 @@ export function GameDice({
   onSelectSpecial,
   disabledColors,
   disabledNumbers,
+  disabledTooltip,
 }: GameDiceProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -136,6 +141,7 @@ export function GameDice({
                     ? () => onSelectColor(i as 0 | 1 | 2)
                     : undefined
                 }
+                title={isDisabled ? disabledTooltip : undefined}
                 className={cn(
                   "bg-white border border-gray-200",
                   COLOR_FACE_TEXT[face],
@@ -167,6 +173,7 @@ export function GameDice({
                     ? () => onSelectNumber(i as 0 | 1 | 2)
                     : undefined
                 }
+                title={isDisabled ? disabledTooltip : undefined}
                 className={cn(
                   "bg-white border border-gray-200",
                   isDisabled && "opacity-40",

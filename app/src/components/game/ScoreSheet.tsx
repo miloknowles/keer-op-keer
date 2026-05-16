@@ -97,7 +97,7 @@ export function ScoreSheet({
                   missed && "opacity-25",
                 )}
               >
-                {rowItem === "heart" && <span className="text-red-500">♥</span>}
+                {rowItem === "heart" && <span>❤️</span>}
                 {rowItem === "box" && <span>📦</span>}
                 {rowItem === "bomb" && <span>💣</span>}
               </div>
@@ -230,11 +230,11 @@ export function ScoreSheet({
               >
                 {heartRecorded ? (
                   <span className="text-xs font-bold text-red-400 flex items-center gap-0.5">
-                    <span className="text-[10px]">♥</span>
+                    <span className="text-[10px]">❤️</span>
                     {heartBonus}
                   </span>
                 ) : (
-                  <span className="text-red-200 text-base">♥</span>
+                  <span className="text-[10px] opacity-30">❤️</span>
                 )}
               </div>
             </div>
