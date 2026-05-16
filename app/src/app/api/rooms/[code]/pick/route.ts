@@ -8,6 +8,7 @@ import {
 } from "@/lib/game/rules";
 import { colorsCompleted } from "@/lib/game/sheet";
 import { computePickResult } from "@/lib/game/effects";
+import { computeScore } from "@/lib/game/scoring";
 import type {
   GamePick,
   DiceRoll,
@@ -237,33 +238,55 @@ export async function POST(
   const roundComplete = activeSubmitted && submittedNonActive >= nonActiveCount;
 
   if (roundComplete) {
-    const { error: roomErr } = await supabase
-      .from("rooms")
-      .update({
-        round_number: room.round_number + 1,
-        current_player_index:
-          (room.current_player_index + 1) % (totalPlayers ?? 1),
-      })
-      .eq("id", room.id);
-    if (roomErr) {
-      console.error("[pick] advance round failed:", roomErr);
-      return NextResponse.json(
-        { error: roomErr.message },
-        { status: 500 },
-      );
-    }
-  }
+    // Load all players' full state — current player's update already committed in step 13
+    const { data: allFull } = await supabase
+      .from("room_players")
+      .select("*")
+      .eq("room_id", room.id);
 
-  // ── 15. Check game end condition ──────────────────────────────────────────
-  const myCompletedColors = colorsCompleted(config, result.crossed_cells).length;
-  if (myCompletedColors >= config.scoring.gameEnd.colorsCompleted) {
-    await supabase
-      .from("rooms")
-      .update({
-        status: "finished",
-        finished_at: new Date().toISOString(),
-      })
-      .eq("id", room.id);
+    const allFullPlayers = (allFull ?? []) as RoomPlayerRow[];
+    const threshold = config.scoring.gameEnd.colorsCompleted;
+    const gameEnds = allFullPlayers.some(
+      (p) => colorsCompleted(config, p.crossed_cells).length >= threshold,
+    );
+
+    if (gameEnds) {
+      // ── 15. Compute and persist final scores ────────────────────────────
+      for (const player of allFullPlayers) {
+        const breakdown = computeScore(config, player, allFullPlayers);
+        const { error: scoreErr } = await supabase
+          .from("room_players")
+          .update({ score: breakdown.total, score_breakdown: breakdown })
+          .eq("id", player.id);
+        if (scoreErr) {
+          console.error("[pick] write score failed:", scoreErr);
+        }
+      }
+      await supabase
+        .from("rooms")
+        .update({
+          status: "finished",
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", room.id);
+    } else {
+      // ── 15. Advance to next round ───────────────────────────────────────
+      const { error: roomErr } = await supabase
+        .from("rooms")
+        .update({
+          round_number: room.round_number + 1,
+          current_player_index:
+            (room.current_player_index + 1) % (totalPlayers ?? 1),
+        })
+        .eq("id", room.id);
+      if (roomErr) {
+        console.error("[pick] advance round failed:", roomErr);
+        return NextResponse.json(
+          { error: roomErr.message },
+          { status: 500 },
+        );
+      }
+    }
   }
 
   return NextResponse.json({ ok: true });
