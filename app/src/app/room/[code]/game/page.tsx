@@ -178,18 +178,27 @@ export default function GamePage() {
   const allPicksSubmitted = !!currentHistory &&
     !!currentHistory.active_pick &&
     Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {}).length >= players.length - 1;
-  const disabledColorDice: (0 | 1 | 2)[] = (() => {
+  let disabledColorDice: (0 | 1 | 2)[] = (() => {
     if (isActivePlayer || openRound) return [];
     if (!activePick) return [0, 1, 2];
     if (activePick.type === "color_number") return [activePick.color_die];
     return [];
   })();
-  const disabledNumberDice: (0 | 1 | 2)[] = (() => {
+  let disabledNumberDice: (0 | 1 | 2)[] = (() => {
     if (isActivePlayer || openRound) return [];
     if (!activePick) return [0, 1, 2];
     if (activePick.type === "color_number") return [activePick.number_die];
     return [];
   })();
+  // Spec: player with 0 wildcards cannot pick a wildcard die
+  if (effectiveMe.wildcards === 0 && dice) {
+    ([0, 1, 2] as const).forEach((i) => {
+      if (isColorWildcard(dice.colors[i]) && !disabledColorDice.includes(i))
+        disabledColorDice = [...disabledColorDice, i];
+      if (isNumberWildcard(dice.numbers[i]) && !disabledNumberDice.includes(i))
+        disabledNumberDice = [...disabledNumberDice, i];
+    });
+  }
 
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
@@ -726,6 +735,7 @@ export default function GamePage() {
                 disabledColors={isMyBoard ? disabledColorDice : undefined}
                 disabledNumbers={isMyBoard ? disabledNumberDice : undefined}
                 disabledTooltip={activePlayer ? `${activePlayer.display_name} already picked this` : undefined}
+                noWildcardsLeft={isMyBoard ? effectiveMe.wildcards === 0 : undefined}
               />
             ) : effectiveMe.seat_index === room.current_player_index ? (
               <button

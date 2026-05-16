@@ -106,6 +106,7 @@ interface GameDiceProps {
   disabledColors?: (0 | 1 | 2)[];
   disabledNumbers?: (0 | 1 | 2)[];
   disabledTooltip?: string;
+  noWildcardsLeft?: boolean;
 }
 
 export function GameDice({
@@ -121,6 +122,7 @@ export function GameDice({
   disabledColors,
   disabledNumbers,
   disabledTooltip,
+  noWildcardsLeft,
 }: GameDiceProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -132,6 +134,10 @@ export function GameDice({
         <div className="flex gap-2">
           {colors.map((face, i) => {
             const isDisabled = disabledColors?.includes(i as 0 | 1 | 2);
+            const isWildcardFace = face === "✕";
+            const title = isDisabled
+              ? (isWildcardFace && noWildcardsLeft ? "No wildcards remaining" : disabledTooltip)
+              : (isWildcardFace ? "Wildcard — select any color" : undefined);
             return (
               <Die
                 key={i}
@@ -141,7 +147,7 @@ export function GameDice({
                     ? () => onSelectColor(i as 0 | 1 | 2)
                     : undefined
                 }
-                title={isDisabled ? disabledTooltip : undefined}
+                title={title}
                 className={cn(
                   "bg-white border border-gray-200",
                   COLOR_FACE_TEXT[face],
@@ -164,6 +170,10 @@ export function GameDice({
         <div className="flex gap-2">
           {numbers.map((face, i) => {
             const isDisabled = disabledNumbers?.includes(i as 0 | 1 | 2);
+            const isWildcardFace = face === "?";
+            const title = isDisabled
+              ? (isWildcardFace && noWildcardsLeft ? "No wildcards remaining" : disabledTooltip)
+              : (isWildcardFace ? "Wildcard — select any number of cells" : undefined);
             return (
               <Die
                 key={i}
@@ -173,7 +183,7 @@ export function GameDice({
                     ? () => onSelectNumber(i as 0 | 1 | 2)
                     : undefined
                 }
-                title={isDisabled ? disabledTooltip : undefined}
+                title={title}
                 className={cn(
                   "bg-white border border-gray-200",
                   isDisabled && "opacity-40",
