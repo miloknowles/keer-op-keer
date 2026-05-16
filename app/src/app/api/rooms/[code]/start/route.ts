@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 export async function POST(
   _req: NextRequest,
@@ -32,12 +33,15 @@ export async function POST(
   }
 
   // Verify caller is the host
-  const { data: me } = await supabase
+  const meQuery = supabase
     .from("room_players")
     .select("id")
     .eq("room_id", room.id)
     .eq("user_id", user.id)
-    .maybeSingle();
+    .limit(1);
+
+  const { data: meList } = await meQuery;
+  const me = meList?.[0] ?? null;
   if (!me) return NextResponse.json({ error: "Not in room" }, { status: 403 });
   if (me.id !== room.host_id) {
     return NextResponse.json(

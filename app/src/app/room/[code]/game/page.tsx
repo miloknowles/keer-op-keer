@@ -62,6 +62,7 @@ export default function GamePage() {
   const [selectedNumber, setSelectedNumber] = useState<0 | 1 | 2 | undefined>();
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
 
@@ -218,6 +219,44 @@ export default function GamePage() {
     setSelectedColor(undefined);
     setSelectedNumber(undefined);
     setSelectedCells([]);
+  }
+
+  async function handleConfirmPick() {
+    if (!canConfirm || !dice || selectedColor === undefined || selectedNumber === undefined) return;
+    setConfirming(true);
+    try {
+      const colorFace = dice.colors[selectedColor];
+      const numberFace = dice.numbers[selectedNumber];
+      // Wildcard color: infer declared_color from first selected cell
+      const declaredColor = colorFace === "✕"
+        ? ((boardConfig.cells as any)[selectedCells[0]]?.color ?? colorFace)
+        : colorFace;
+      // Wildcard number: declared_number = cell count
+      const declaredNumber = numberFace === "?" ? selectedCells.length : parseInt(numberFace, 10);
+
+      const res = await fetch(`/api/rooms/${room.code}/pick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "color_number",
+          color_die: selectedColor,
+          number_die: selectedNumber,
+          declared_color: declaredColor,
+          declared_number: declaredNumber,
+          cells: selectedCells,
+        }),
+      });
+      if (res.ok) {
+        clearPick();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        console.error("[handleConfirmPick]", body.error ?? res.status);
+      }
+    } catch (err) {
+      console.error("[handleConfirmPick] network error:", err);
+    } finally {
+      setConfirming(false);
+    }
   }
 
   const canConfirm = useMemo(() => {
@@ -516,10 +555,11 @@ export default function GamePage() {
                 </div>
               </div>
               <button
-                disabled={!canConfirm}
+                onClick={handleConfirmPick}
+                disabled={!canConfirm || confirming}
                 className="mt-1 w-full py-2 rounded-lg bg-kok-blue text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
               >
-                Confirm Pick
+                {confirming ? "Confirming…" : "Confirm Pick"}
               </button>
               {hintText && (
                 <p className="text-xs text-gray-400 italic text-center leading-snug">
