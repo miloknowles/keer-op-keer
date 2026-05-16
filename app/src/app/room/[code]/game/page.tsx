@@ -287,17 +287,74 @@ export default function GamePage() {
 
   function handleCellClick(key: string) {
     if (!isMyBoard) return;
+
+    if (selectedSpecial && dice) {
+      if (dice.special === "heart") return;
+
+      if (dice.special === "fill") {
+        const cell = boardConfig.cells[key];
+        if (!cell) return;
+        if (selectedCells.includes(key)) { setSelectedCells([]); return; }
+        const region = getConnectedRegion(boardConfig, cell.color, key, effectiveMe.crossed_cells as string[]);
+        setSelectedCells(region);
+        return;
+      }
+
+      if (dice.special === "three_in_a_row") {
+        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.length >= 3) return;
+        if (selectedCells.length > 0 && key.split("-")[1] !== selectedCells[0].split("-")[1]) return;
+        setSelectedCells((p) => [...p, key]);
+        return;
+      }
+
+      if (dice.special === "bomb") {
+        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.length >= 4) return;
+        const newSel = [...selectedCells, key];
+        const idxs = newSel.map((k) => {
+          const [col, row] = k.split("-");
+          return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
+        });
+        const cSpan = Math.max(...idxs.map(([c]) => c)) - Math.min(...idxs.map(([c]) => c));
+        const rSpan = Math.max(...idxs.map(([, r]) => r)) - Math.min(...idxs.map(([, r]) => r));
+        if (cSpan > 1 || rSpan > 1) return;
+        setSelectedCells(newSel);
+        return;
+      }
+
+      if (dice.special === "two_stars") {
+        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.length >= 2) return;
+        setSelectedCells((p) => [...p, key]);
+        return;
+      }
+    }
+
     setSelectedCells((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
   }
 
   function handleColorPick(i: 0 | 1 | 2) {
+    setSelectedSpecial(false);
     setSelectedColor((prev) => (prev === i ? undefined : i));
   }
 
   function handleNumberPick(i: 0 | 1 | 2) {
+    setSelectedSpecial(false);
     setSelectedNumber((prev) => (prev === i ? undefined : i));
+  }
+
+  function handleSpecialSelect() {
+    setSelectedSpecial((prev) => {
+      if (!prev) {
+        setSelectedColor(undefined);
+        setSelectedNumber(undefined);
+        setSelectedCells([]);
+      }
+      return !prev;
+    });
   }
 
   async function handleRoll() {
@@ -310,6 +367,7 @@ export default function GamePage() {
     setSelectedColor(undefined);
     setSelectedNumber(undefined);
     setSelectedCells([]);
+    setSelectedSpecial(false);
   }
 
   async function handleConfirmPick() {
@@ -355,6 +413,33 @@ export default function GamePage() {
     }
   }
 
+  async function handleConfirmSpecialPick() {
+    if (!canConfirmSpecial) return;
+    setConfirming(true);
+    try {
+      const res = await fetch(`/api/rooms/${room.code}/pick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "special",
+          cells: selectedCells,
+          ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
+        }),
+      });
+      if (res.ok) {
+        clearPick();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? "Failed to confirm special pick");
+      }
+    } catch (err) {
+      console.error("[handleConfirmSpecialPick] network error:", err);
+      toast.error("Network error — please try again");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   const canConfirm = useMemo(() => {
     if (!isMyBoard || selectedColor === undefined || selectedNumber === undefined) {
       return false;
@@ -363,17 +448,50 @@ export default function GamePage() {
 
     const declaredNumberFace = dice.numbers[selectedNumber];
     if (isNumberWildcard(declaredNumberFace)) {
-      // For wildcard number, just need at least 1 cell
       return selectedCells.length > 0;
     }
 
-    // For non-wildcard, need exactly the specified count
     const required = parseInt(declaredNumberFace, 10);
     return selectedCells.length === required;
   }, [isMyBoard, selectedColor, selectedNumber, selectedCells, dice]);
 
+  const canConfirmSpecial = useMemo(() => {
+    if (!selectedSpecial || !dice) return false;
+    switch (dice.special) {
+      case "heart": return true;
+      case "fill": return selectedCells.length > 0;
+      case "three_in_a_row": return selectedCells.length === 3;
+      case "bomb": return selectedCells.length === 4;
+      case "two_stars": return selectedCells.length === 2;
+      default: return false;
+    }
+  }, [selectedSpecial, dice, selectedCells]);
+
   const hintText = useMemo<string | null>(() => {
     if (!isMyBoard || !dice) return null;
+
+    if (selectedSpecial) {
+      switch (dice.special) {
+        case "heart": return "Spend 1 box — gain 1 heart";
+        case "fill":
+          return selectedCells.length > 0
+            ? "Region selected — click Confirm"
+            : "Click a cell to fill its connected color region";
+        case "three_in_a_row": {
+          const rem = 3 - selectedCells.length;
+          return rem > 0 ? `Pick ${rem} more adjacent cell${rem === 1 ? "" : "s"} in the same row` : null;
+        }
+        case "bomb": {
+          const rem = 4 - selectedCells.length;
+          return rem > 0 ? `Pick ${rem} more cell${rem === 1 ? "" : "s"} to complete the 2×2` : null;
+        }
+        case "two_stars": {
+          const rem = 2 - selectedCells.length;
+          return rem > 0 ? `Pick ${rem} more star cell${rem === 1 ? "" : "s"}` : null;
+        }
+      }
+    }
+
     if (selectedColor === undefined) return "Pick a color die";
     if (selectedNumber === undefined) return "Pick a number die";
 
@@ -391,7 +509,7 @@ export default function GamePage() {
     const remaining = required - selectedCells.length;
     if (remaining === 0) return null;
     return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
-  }, [isMyBoard, dice, selectedColor, selectedNumber, selectedCells]);
+  }, [isMyBoard, dice, selectedSpecial, selectedColor, selectedNumber, selectedCells]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -496,6 +614,19 @@ export default function GamePage() {
             <div className="flex flex-col gap-1">
               {players.map((p) => {
                 const isActive = p.seat_index === room.current_player_index;
+                const activePlayerHasPicked = !!currentHistory?.active_pick;
+                const thisPlayerHasPicked = currentHistory
+                  ? isActive
+                    ? !!currentHistory.active_pick
+                    : p.id in (currentHistory.player_picks ?? {})
+                  : false;
+                const pickStatus = currentHistory
+                  ? thisPlayerHasPicked
+                    ? "done"
+                    : isActive || activePlayerHasPicked
+                      ? "waiting"
+                      : "blocked"
+                  : null;
                 return (
                   <div
                     key={p.id}
@@ -505,26 +636,39 @@ export default function GamePage() {
                         : "bg-gray-50"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Avatar
                         name={p.display_name}
                         variant="beam"
                         size={24}
                         colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
                       />
-                      <span className="font-medium text-gray-800">
-                        {p.display_name}
-                        {p.id === me.id && (
-                          <span className="text-gray-400 text-xs font-normal">
-                            {" "}
-                            (you)
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-800 truncate block">
+                          {p.display_name}
+                          {p.id === me.id && (
+                            <span className="text-gray-400 text-xs font-normal">
+                              {" "}
+                              (you)
+                            </span>
+                          )}
+                        </span>
+                        {pickStatus && pickStatus !== "done" && (
+                          <span className="text-[10px] text-gray-400 leading-none">
+                            {pickStatus === "waiting" ? "Waiting for their pick" : "Can't pick yet"}
                           </span>
                         )}
-                      </span>
+                      </div>
                     </div>
-                    <span className="font-bold text-gray-700 tabular-nums">
-                      {p.score ?? 0}
-                    </span>
+                    {pickStatus === "done" ? (
+                      <svg className="shrink-0 text-kok-green" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="2.5,8.5 6,12 13.5,4" />
+                      </svg>
+                    ) : (
+                      <span className="font-bold text-gray-700 tabular-nums shrink-0">
+                        {p.score ?? 0}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -543,8 +687,10 @@ export default function GamePage() {
                 special={dice.special}
                 selectedColor={isMyBoard ? selectedColor : undefined}
                 selectedNumber={isMyBoard ? selectedNumber : undefined}
+                selectedSpecial={isMyBoard ? selectedSpecial : undefined}
                 onSelectColor={isMyBoard ? handleColorPick : undefined}
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
+                onSelectSpecial={isMyBoard && canUseSpecial ? handleSpecialSelect : undefined}
               />
             ) : effectiveMe.seat_index === room.current_player_index ? (
               <button
@@ -619,40 +765,65 @@ export default function GamePage() {
                 Your Pick
               </div>
               <div className="text-xs text-gray-500 space-y-0.5">
-                <div>
-                  Color:{" "}
-                  {selectedColor !== undefined && dice ? (
-                    <span className="font-semibold text-gray-700">
-                      {dice.colors[selectedColor].toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="italic">none</span>
-                  )}
-                </div>
-                <div>
-                  Number:{" "}
-                  {selectedNumber !== undefined && dice ? (
-                    <span className="font-semibold text-gray-700">
-                      {dice.numbers[selectedNumber]}
-                    </span>
-                  ) : (
-                    <span className="italic">none</span>
-                  )}
-                </div>
-                <div>
-                  Cells:{" "}
-                  {selectedCells.length > 0 ? (
-                    <span className="font-semibold text-gray-700">
-                      {selectedCells.join(", ")}
-                    </span>
-                  ) : (
-                    <span className="italic">none selected</span>
-                  )}
-                </div>
+                {selectedSpecial && dice ? (
+                  <>
+                    <div>
+                      Special:{" "}
+                      <span className="font-semibold text-amber-700">
+                        {dice.special.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div>
+                      Cells:{" "}
+                      {selectedCells.length > 0 ? (
+                        <span className="font-semibold text-gray-700">
+                          {selectedCells.join(", ")}
+                        </span>
+                      ) : dice.special === "heart" ? (
+                        <span className="italic">none needed</span>
+                      ) : (
+                        <span className="italic">none selected</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      Color:{" "}
+                      {selectedColor !== undefined && dice ? (
+                        <span className="font-semibold text-gray-700">
+                          {dice.colors[selectedColor].toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className="italic">none</span>
+                      )}
+                    </div>
+                    <div>
+                      Number:{" "}
+                      {selectedNumber !== undefined && dice ? (
+                        <span className="font-semibold text-gray-700">
+                          {dice.numbers[selectedNumber]}
+                        </span>
+                      ) : (
+                        <span className="italic">none</span>
+                      )}
+                    </div>
+                    <div>
+                      Cells:{" "}
+                      {selectedCells.length > 0 ? (
+                        <span className="font-semibold text-gray-700">
+                          {selectedCells.join(", ")}
+                        </span>
+                      ) : (
+                        <span className="italic">none selected</span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               <button
-                onClick={handleConfirmPick}
-                disabled={!canConfirm || confirming}
+                onClick={selectedSpecial ? handleConfirmSpecialPick : handleConfirmPick}
+                disabled={!(selectedSpecial ? canConfirmSpecial : canConfirm) || confirming}
                 className="mt-1 w-full py-2 rounded-lg bg-kok-blue text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
               >
                 {confirming ? "Confirming…" : "Confirm Pick"}
