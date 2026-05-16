@@ -11,6 +11,8 @@ export function useRoomChat(roomId: string, playerId: string) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    let mounted = true;
+
     supabase
       .from("room_chats")
       .select("*")
@@ -18,13 +20,15 @@ export function useRoomChat(roomId: string, playerId: string) {
       .order("created_at", { ascending: true })
       .limit(50)
       .then(({ data }) => {
-        if (data) setMessages(data);
-        setLoading(false);
+        if (mounted && data) {
+          setMessages(data);
+          setLoading(false);
+        }
       });
 
-    const channel = supabase.channel(`chat:${roomId}`);
-
-    channel
+    const channelName = `chat:${roomId}`;
+    const channel = supabase
+      .channel(channelName, { config: { broadcast: { self: false } } })
       .on(
         "postgres_changes",
         {
@@ -34,6 +38,7 @@ export function useRoomChat(roomId: string, playerId: string) {
           filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
+          if (!mounted) return;
           const newMessage = payload.new as RoomChatRow;
           setMessages((prev) => [...prev, newMessage]);
           if (newMessage.player_id !== playerId) {
@@ -44,8 +49,8 @@ export function useRoomChat(roomId: string, playerId: string) {
       .subscribe();
 
     return () => {
+      mounted = false;
       channel.unsubscribe();
-      supabase.removeChannel(channel);
     };
   }, [roomId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
