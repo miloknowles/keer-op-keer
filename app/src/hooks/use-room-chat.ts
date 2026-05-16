@@ -26,7 +26,7 @@ export function useRoomChat(roomId: string, playerId: string) {
         }
       });
 
-    const channelName = `chat:${roomId}`;
+    const channelName = `chat:${roomId}:${crypto.randomUUID()}`;
     const channel = supabase
       .channel(channelName, { config: { broadcast: { self: false } } })
       .on(
