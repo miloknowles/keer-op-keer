@@ -215,6 +215,43 @@ describe("validateColorNumberPick — basic", () => {
     );
     expect(result.valid).toBe(false);
   });
+
+  it("rejects non-contiguous cells even when each is adjacent to existing region", () => {
+    // Pink cells: A-P, B-P, F-P, G-P, G-Q, H-Q, M-Q, M-R, N-R, N-S, O-S, C-T, D-T, L-T, C-U, J-U, K-U, L-U, E-V, I-V
+    // G-P neighbors: F-P, H-P, G-Q
+    // G-Q neighbors: F-Q, H-Q, G-P, G-R
+    // F-P neighbors: E-P, G-P, F-Q
+    // H-Q neighbors: G-Q, I-Q, H-P, H-R
+    // F-P and H-Q are NOT adjacent to each other.
+    // If crossed = [G-P, G-Q], then F-P is adjacent to G-P, and H-Q is adjacent to G-Q.
+    // But F-P and H-Q are not adjacent to each other, so [F-P, H-Q] is not contiguous.
+    const pickNonContiguous: ColorNumberPick = {
+      type: "color_number",
+      color_die: 1, // 'p' (pink)
+      number_die: 1, // '2'
+      declared_color: "p",
+      declared_number: 2,
+      cells: ["F-P", "H-Q"], // pink; F-P adjacent to G-P, H-Q adjacent to G-Q, but F-P and H-Q not adjacent to each other
+    };
+    const playerNonContiguous = makePlayer({
+      crossed_cells: ["G-P", "G-Q"],
+    });
+    const resultNonContiguous = validateColorNumberPick(
+      config,
+      pickNonContiguous,
+      makeRoll(),
+      playerNonContiguous,
+      null,
+      false,
+      2,
+    );
+    // The incremental adjacency check will pass both F-P and H-Q individually.
+    // The contiguity check should catch that they are not in a single connected group.
+    expect(resultNonContiguous.valid).toBe(false);
+    expect(
+      (resultNonContiguous as { valid: false; error: string }).error,
+    ).toMatch(/contiguous/i);
+  });
 });
 
 describe("validateColorNumberPick — wildcards", () => {
