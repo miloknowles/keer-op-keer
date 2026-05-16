@@ -164,9 +164,18 @@ export function validateSpecialPick(
   pick: SpecialPick,
   roll: DiceRoll,
   player: RoomPlayerRow,
+  activePick: GamePick | null = null,
+  isActivePlayer: boolean = true,
+  round: number = 1,
 ): ValidationResult {
   const availableBoxes = player.boxes_unlocked - player.boxes_spent;
   if (availableBoxes < 1) return fail("no boxes available");
+
+  // In rounds 3+, non-active players cannot use the special die if the active
+  // player already claimed it.
+  if (round >= 3 && !isActivePlayer && activePick?.type === "special") {
+    return fail("special die already used by active player");
+  }
 
   const crossedSet = new Set(player.crossed_cells);
   const { cells } = pick;
@@ -251,12 +260,16 @@ export function validateSpecialPick(
 
     case "two_stars": {
       if (cells.length !== 2) return fail("two_stars requires exactly 2 cells");
+      const buildingCrossed = [...player.crossed_cells];
       for (const key of cells) {
         const cell = getCell(config, key);
         if (!cell) return fail(`cell ${key} does not exist on board`);
         if (cell.special !== "star")
           return fail(`cell ${key} is not a star cell`);
         if (crossedSet.has(key)) return fail(`cell ${key} is already crossed`);
+        if (!isValidPlacement(config, key, buildingCrossed))
+          return fail(`cell ${key} is not adjacent to existing region`);
+        buildingCrossed.push(key);
       }
       break;
     }
@@ -307,7 +320,7 @@ function hasLegalColorNumberMove(
   return false;
 }
 
-// Returns true only when the player has no legal color+number move and no box to spend.
+// Returns true only when the player has no legal color+number move and no usable special option.
 export function canPass(
   config: BoardConfig,
   roll: DiceRoll,
@@ -316,7 +329,10 @@ export function canPass(
   isActivePlayer: boolean,
   round: number,
 ): boolean {
-  if (player.boxes_unlocked - player.boxes_spent >= 1) return false;
+  // Special die is unavailable to non-active players in round 3+ when active player used it.
+  const specialAvailable =
+    round < 3 || isActivePlayer || activePick?.type !== "special";
+  if (player.boxes_unlocked - player.boxes_spent >= 1 && specialAvailable) return false;
 
   const allColors = getBoardColors(config);
 
@@ -463,10 +479,13 @@ export function getValidCells(
 
       case "two_stars": {
         if (selectedCells.length >= 2) return new Set<string>();
+        const reachable = [...crossed, ...selectedCells];
         const result = new Set<string>();
         for (const [key, cell] of Object.entries(config.cells)) {
           if (crossedSet.has(key) || selectedCells.includes(key)) continue;
-          if (cell.special === "star") result.add(key);
+          if (cell.special !== "star") continue;
+          if (!isValidPlacement(config, key, reachable)) continue;
+          result.add(key);
         }
         return result;
       }

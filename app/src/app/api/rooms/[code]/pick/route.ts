@@ -147,7 +147,7 @@ export async function POST(
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (pick.type === "special") {
-    const result = validateSpecialPick(config, pick, roll, playerRow);
+    const result = validateSpecialPick(config, pick, roll, playerRow, activePick, isActivePlayer, room.round_number);
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (pick.type === "pass") {

@@ -171,7 +171,8 @@ export default function GamePage() {
   const isMyBoard = viewingId === effectiveMe.id;
   const isActivePlayer = effectiveMe.seat_index === room.current_player_index;
   const availableBoxes = effectiveMe.boxes_unlocked - effectiveMe.boxes_spent;
-  const canUseSpecial = availableBoxes > 0 && !!dice;
+  const specialTakenByActive = !openRound && !isActivePlayer && activePick?.type === "special";
+  const canUseSpecial = availableBoxes > 0 && !!dice && !specialTakenByActive;
 
   const openRound = room.round_number <= 2;
   const activePick = currentHistory?.active_pick ?? null;

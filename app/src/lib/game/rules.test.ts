@@ -610,14 +610,30 @@ describe("validateSpecialPick — bomb", () => {
 });
 
 describe("validateSpecialPick — two_stars", () => {
-  it("accepts exactly 2 star cells", () => {
+  // Player with H column fully crossed: G-U (adj to H-U) and I-V (adj to H-V) are reachable stars.
+  const playerWithPath = makePlayer({
+    crossed_cells: ["H-P", "H-Q", "H-R", "H-S", "H-T", "H-U", "H-V"],
+  });
+
+  it("accepts 2 adjacent star cells", () => {
     const pick: SpecialPick = {
       type: "special",
-      cells: ["C-P", "H-R"], // both star cells
+      cells: ["G-U", "I-V"], // G-U adj to H-U; I-V adj to H-V
+    };
+    const roll = makeRoll({ special: "two_stars" });
+    const result = validateSpecialPick(config, pick, roll, playerWithPath);
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects stars not adjacent to existing region", () => {
+    const pick: SpecialPick = {
+      type: "special",
+      cells: ["C-P", "H-R"], // C-P not reachable with empty crossed region
     };
     const roll = makeRoll({ special: "two_stars" });
     const result = validateSpecialPick(config, pick, roll, makePlayer());
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect((result as { valid: false; error: string }).error).toMatch(/adjacent/i);
   });
 
   it("rejects non-star cells", () => {

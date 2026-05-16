@@ -90,7 +90,7 @@ The `✕` (black X) is a wildcard: the player declares any color when making the
 | Fill | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region. Diagonal does not count. |
 | Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row. All 3 cells must each individually be orthogonally adjacent to your existing region. |
 | Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
-| Two stars | 1 | Cross off any 2 star cells anywhere on your sheet |
+| Two stars | 1 | Cross off any 2 star cells that are adjacent to your existing region. The second star can chain off the first (incremental adjacency). |
 
 Wildcard rules apply equally to the active player and non-active players. When a player picks a `?` or `✕` die, the UI prompts them to declare their chosen value/color before confirming the pick. The declared value is what gets stored and acted on.
 
@@ -106,8 +106,12 @@ Each round, one player is the **active player**. Turns rotate clockwise.
 2. **Active player chooses exactly one of:**
    - **Color + number** — pick 1 color die and 1 number die, cross off **exactly** that many cells of that color (adjacency rule applies). All selected cells must form a **single contiguous group** — you cannot split the selection across multiple separate regions. The player **must** select the full count — they cannot select fewer, and no more cells become available once the count is reached. Either or both dice may be wildcards, costing 1 wildcard slot each. If a player cannot find enough adjacent cells of the declared color in a single contiguous group, they cannot make this move and must either use a special power (if they have boxes) or pass.
    - **Special die** — spend 1 box to use the special die result instead.
-   - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend).
-3. **All other players** each independently choose **2 dice** (1 color + 1 number) from the remaining pool and apply the result to their own sheet. Same wildcard rules apply. A non-active player may also pass if they have no legal move. Non-active players are not competing with each other — each independently reads from the same remaining pool.
+   - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend, or the special die has already been claimed).
+3. **All other players** each independently choose one of:
+   - **Color + number** — pick 1 color die and 1 number die from the remaining pool (same wildcard rules apply).
+   - **Special die** — spend 1 box to use the special die result, **as long as the active player did not already use the special die this round**. Multiple non-active players may each independently use the special die in the same round.
+   - **Pass** — take no action (only valid if no legal color+number move exists and no usable special die option remains).
+   Non-active players are not competing with each other — each independently reads from the same remaining pool.
 4. Play passes to the next active player.
 
 **If a bomb is earned mid-turn** (by completing a row whose item is a bomb), the player must immediately choose and cross off a 2×2 block before their turn ends. This is resolved as part of the same pick submission.
