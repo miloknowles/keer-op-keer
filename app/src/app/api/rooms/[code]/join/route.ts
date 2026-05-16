@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 export async function POST(
   req: NextRequest,
@@ -41,14 +42,14 @@ export async function POST(
     );
   }
 
-  // Idempotent: return existing player_id if already a member
+  // Idempotent: return existing player_id if already a member (unless DEV_MULTI_SEAT)
   const { data: existing } = await supabase
     .from("room_players")
     .select("id")
     .eq("room_id", room.id)
     .eq("user_id", user.id)
     .maybeSingle();
-  if (existing) return NextResponse.json({ player_id: existing.id });
+  if (existing && !DEV_MULTI_SEAT) return NextResponse.json({ player_id: existing.id });
 
   // Count check
   const { count } = await supabase

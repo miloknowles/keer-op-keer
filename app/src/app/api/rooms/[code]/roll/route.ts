@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rollDice } from "@/lib/game/dice";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 export async function POST(
   _req: NextRequest,
@@ -29,12 +30,17 @@ export async function POST(
     );
   }
 
-  const { data: me } = await supabase
+  let meQuery = supabase
     .from("room_players")
     .select("id, seat_index")
     .eq("room_id", room.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+    .eq("user_id", user.id);
+
+  if (DEV_MULTI_SEAT) {
+    meQuery = meQuery.eq("seat_index", room.current_player_index);
+  }
+
+  const { data: me } = await meQuery.maybeSingle();
   if (!me) return NextResponse.json({ error: "Not in room" }, { status: 403 });
   if (me.seat_index !== room.current_player_index) {
     return NextResponse.json({ error: "Not your turn" }, { status: 403 });

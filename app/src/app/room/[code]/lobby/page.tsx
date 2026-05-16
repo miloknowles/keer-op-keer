@@ -6,6 +6,7 @@ import Avatar from "boring-avatars";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
+import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 const SEAT_COLORS: [string, string][] = [
   ["#E8437C", "#ffffff"], // pink
@@ -27,6 +28,7 @@ export default function LobbyPage() {
   const [draft, setDraft] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [addingPlayer, setAddingPlayer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleCopy() {
@@ -78,6 +80,18 @@ export default function LobbyPage() {
       method: "DELETE",
     });
     // Realtime DELETE event removes the player from context for everyone
+  }
+
+  async function handleAddTestPlayer() {
+    setAddingPlayer(true);
+    const testPlayerNum = players.filter((p) => p.user_id === me.user_id).length + 1;
+    const res = await fetch(`/api/rooms/${room.code}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: `Test Player ${testPlayerNum}` }),
+    });
+    setAddingPlayer(false);
+    // Realtime INSERT event adds the new player to context for everyone
   }
 
   return (
@@ -178,6 +192,16 @@ export default function LobbyPage() {
           <p className="text-center text-xs text-gray-400 italic pt-1">
             Share the room code to invite more players
           </p>
+        )}
+
+        {DEV_MULTI_SEAT && (
+          <button
+            onClick={handleAddTestPlayer}
+            disabled={addingPlayer || players.length >= MAX_PLAYERS}
+            className="w-full mt-2 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-40 disabled:pointer-events-none transition-all"
+          >
+            {addingPlayer ? "Adding…" : "+ Add test player"}
+          </button>
         )}
       </div>
 
