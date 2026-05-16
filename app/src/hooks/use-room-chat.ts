@@ -22,8 +22,9 @@ export function useRoomChat(roomId: string, playerId: string) {
         setLoading(false);
       });
 
-    const channel = supabase
-      .channel(`chat:${roomId}`)
+    const channel = supabase.channel(`chat:${roomId}`);
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -43,6 +44,7 @@ export function useRoomChat(roomId: string, playerId: string) {
       .subscribe();
 
     return () => {
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [roomId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
