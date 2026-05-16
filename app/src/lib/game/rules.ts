@@ -12,6 +12,7 @@ import {
   getAdjacentCells,
   isValidPlacement,
   getConnectedRegion,
+  areCellsContiguous,
 } from "./sheet";
 
 export type ValidationResult =
@@ -134,6 +135,11 @@ export function validateColorNumberPick(
       return fail(`cell ${key} is not adjacent to existing region`);
     }
     buildingCrossed.push(key);
+  }
+
+  // Contiguity check — all selected cells must form a single connected group
+  if (!areCellsContiguous(config, cells)) {
+    return fail("selected cells must form a single contiguous group");
   }
 
   // Bomb cells from row completion
