@@ -511,18 +511,11 @@ describe("validateSpecialPick — three_in_a_row", () => {
     // So only G-P and I-P are adjacent to H-P in row P
     // Let's try row S which has more cells near H
     // H-S is crossed. In row S: G-S, I-S are adjacent to H-S
-    const gs = config.cells["G-S"];
-    const is_ = config.cells["I-S"];
-    if (!gs || !is_) return;
-    // We need a third: what's adjacent to the region in row S?
-    // Only G-S and I-S are adjacent to H-S directly
-    // But wait, each cell just needs adj to region — G-S adj to H-S ✓, I-S adj to H-S ✓
-    // We need a third cell in row S adjacent to the region (any of H-P..H-V)
-    // J-S? J-S is adjacent to I-S? No, J-S is adjacent to K-S, I-S, J-R, J-T
-    // I-S is not in crossed so J-S is NOT adjacent to region unless we add more cells
+    // With incremental adjacency, G-S (adj to H-S) then J-S (adj to I-S which was just added)
+    // is now valid. Test the truly-out-of-reach case: L-S is not adjacent to [H-S, G-S, I-S].
     const pick2: SpecialPick = {
       type: "special",
-      cells: ["G-S", "I-S", "J-S"],
+      cells: ["G-S", "I-S", "L-S"],
     };
     const result2 = validateSpecialPick(
       config,
@@ -530,7 +523,7 @@ describe("validateSpecialPick — three_in_a_row", () => {
       makeRoll({ special: "three_in_a_row" }),
       player3,
     );
-    // J-S is not adjacent to the region (only H column is crossed, J-S is 2 cols away from I-S)
+    // L-S is not adjacent to any cell in the incrementally-built region
     expect(result2.valid).toBe(false);
   });
 

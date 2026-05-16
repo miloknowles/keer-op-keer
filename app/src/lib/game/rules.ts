@@ -224,13 +224,17 @@ export function validateSpecialPick(
       const rows = cells.map((k) => k.split("-")[1]);
       if (new Set(rows).size !== 1)
         return fail("three_in_a_row cells must all be in the same row");
+      // Incremental adjacency: each cell must touch the growing region, allowing
+      // cells to chain off earlier picks (e.g. green → green → yellow in one row).
+      const buildingCrossed = [...player.crossed_cells];
       for (const key of cells) {
         if (!getCell(config, key))
           return fail(`cell ${key} does not exist on board`);
         if (crossedSet.has(key)) return fail(`cell ${key} is already crossed`);
-        if (!isValidPlacement(config, key, player.crossed_cells)) {
+        if (!isValidPlacement(config, key, buildingCrossed)) {
           return fail(`cell ${key} is not adjacent to existing region`);
         }
+        buildingCrossed.push(key);
       }
       break;
     }
@@ -394,11 +398,14 @@ export function getValidCells(
         const selectedRow =
           selectedCells.length > 0 ? selectedCells[0].split("-")[1] : null;
         const result = new Set<string>();
+        // Adjacency is checked against the incrementally-growing region so that
+        // cells can chain off previously-selected cells, not just off crossed cells.
+        const reachable = [...crossed, ...selectedCells];
         for (const key of Object.keys(config.cells)) {
           if (crossedSet.has(key) || selectedCells.includes(key)) continue;
           const [, row] = key.split("-");
           if (selectedRow !== null && row !== selectedRow) continue;
-          if (!isAdjacentToRegion(config, key, crossed)) continue;
+          if (!isAdjacentToRegion(config, key, reachable)) continue;
           result.add(key);
         }
         return result;
