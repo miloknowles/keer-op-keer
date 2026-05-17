@@ -117,7 +117,7 @@ export default function GamePage() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "c") { e.preventDefault(); setChatOpen((prev) => !prev); }
       else if (e.key === "h") { e.preventDefault(); setHistoryOpen((prev) => !prev); }
-      else if (e.key === "s") { e.preventDefault(); roomStatusRef.current === "finished" ? setGameOverOpen((prev) => !prev) : setScoresOpen((prev) => !prev); }
+      else if (e.key === "s") { e.preventDefault(); if (roomStatusRef.current === "finished") { setGameOverOpen((prev) => !prev); } else { setScoresOpen((prev) => !prev); } }
       else {
         const digit = parseInt(e.key, 10);
         if (!isNaN(digit) && digit >= 1) {

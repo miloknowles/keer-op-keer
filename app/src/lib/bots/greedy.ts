@@ -7,8 +7,6 @@ import {
   isRowComplete,
   isColumnComplete,
   isColorComplete,
-  getCellsOfColor,
-  uncrossedStars,
 } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import type { BotContext, BotStrategy } from "./types";
