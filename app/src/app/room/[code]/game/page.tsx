@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "boring-avatars";
 import {
@@ -604,9 +605,9 @@ export default function GamePage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-black text-kok-orange tracking-wide uppercase">
+          <Link href="/" className="font-black text-kok-orange tracking-wide uppercase hover:opacity-75 transition-opacity">
             Keer op Keer 2
-          </span>
+          </Link>
           <span className="text-gray-300">|</span>
           <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">
             {room.code.toUpperCase()}
