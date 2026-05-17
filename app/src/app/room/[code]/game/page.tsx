@@ -73,6 +73,7 @@ export default function GamePage() {
   const [skipConfirming, setSkipConfirming] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [scoresOpen, setScoresOpen] = useState(false);
+  const [rowBombCells, setRowBombCells] = useState<string[]>([]);
 
   const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
 
@@ -240,6 +241,17 @@ export default function GamePage() {
     selectedCells,
   ]);
 
+  // True when selectedCells would newly complete a bomb-item row.
+  const willCompleteBombRow = useMemo(() => {
+    if (selectedCells.length === 0) return false;
+    const after = [...(effectiveMe.crossed_cells as string[]), ...selectedCells];
+    return boardConfig.grid.rows.some((row) => {
+      if (isRowComplete(boardConfig, row, effectiveMe.crossed_cells as string[])) return false;
+      if (!isRowComplete(boardConfig, row, after)) return false;
+      return (boardConfig.scoring.rowItems as Record<string, string>)[row] === "bomb";
+    });
+  }, [selectedCells, effectiveMe.crossed_cells, boardConfig]);
+
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
 
@@ -258,6 +270,29 @@ export default function GamePage() {
 
   function handleCellClick(key: string) {
     if (!isMyBoard) return;
+
+    // Row-bomb placement mode: main pick is ready and completed a bomb row.
+    // Direct further clicks to selecting the 2×2 bomb cells.
+    if (inRowBombMode) {
+      if (rowBombCells.includes(key)) {
+        setRowBombCells((p) => p.filter((k) => k !== key));
+        return;
+      }
+      if (rowBombCells.length >= 4) return;
+      const newSel = [...rowBombCells, key];
+      const idxs = newSel.map((k) => {
+        const [col, row] = k.split("-");
+        return [
+          boardConfig.grid.columns.indexOf(col),
+          boardConfig.grid.rows.indexOf(row),
+        ] as [number, number];
+      });
+      const cSpan = Math.max(...idxs.map(([c]) => c)) - Math.min(...idxs.map(([c]) => c));
+      const rSpan = Math.max(...idxs.map(([, r]) => r)) - Math.min(...idxs.map(([, r]) => r));
+      if (cSpan > 1 || rSpan > 1) return;
+      setRowBombCells(newSel);
+      return;
+    }
 
     if (selectedSpecial && dice) {
       if (dice.special === "heart") return;
@@ -390,6 +425,7 @@ export default function GamePage() {
     setSelectedNumber(undefined);
     setSelectedCells([]);
     setSelectedSpecial(false);
+    setRowBombCells([]);
   }
 
   async function handleSkipTurn() {
@@ -449,6 +485,7 @@ export default function GamePage() {
           declared_color: declaredColor,
           declared_number: declaredNumber,
           cells: selectedCells,
+          ...(rowBombCells.length > 0 && { bomb_cells: rowBombCells }),
           ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
         }),
       });
@@ -479,6 +516,7 @@ export default function GamePage() {
         body: JSON.stringify({
           type: "special",
           cells: selectedCells,
+          ...(rowBombCells.length > 0 && { bomb_cells: rowBombCells }),
           ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
         }),
       });
@@ -496,45 +534,82 @@ export default function GamePage() {
     }
   }
 
-  const canConfirm = useMemo(() => {
-    if (
-      !isMyBoard ||
-      selectedColor === undefined ||
-      selectedNumber === undefined
-    ) {
-      return false;
-    }
-    if (!dice) return false;
-
+  const mainPickReady = useMemo(() => {
+    if (!isMyBoard || selectedColor === undefined || selectedNumber === undefined || !dice) return false;
     const declaredNumberFace = dice.numbers[selectedNumber];
-    if (isNumberWildcard(declaredNumberFace)) {
-      return selectedCells.length > 0;
-    }
-
-    const required = parseInt(declaredNumberFace, 10);
-    return selectedCells.length === required;
+    if (isNumberWildcard(declaredNumberFace)) return selectedCells.length > 0;
+    return selectedCells.length === parseInt(declaredNumberFace, 10);
   }, [isMyBoard, selectedColor, selectedNumber, selectedCells, dice]);
 
-  const canConfirmSpecial = useMemo(() => {
+  const mainSpecialPickReady = useMemo(() => {
     if (!selectedSpecial || !dice) return false;
     switch (dice.special) {
-      case "heart":
-        return true;
-      case "fill":
-        return selectedCells.length > 0;
-      case "three_in_a_row":
-        return selectedCells.length >= 1 && selectedCells.length <= 3;
-      case "bomb":
-        return selectedCells.length === 4;
-      case "two_stars":
-        return selectedCells.length === 2;
-      default:
-        return false;
+      case "heart": return true;
+      case "fill": return selectedCells.length > 0;
+      case "three_in_a_row": return selectedCells.length >= 1 && selectedCells.length <= 3;
+      case "bomb": return selectedCells.length === 4;
+      case "two_stars": return selectedCells.length === 2;
+      default: return false;
     }
   }, [selectedSpecial, dice, selectedCells]);
 
+  // Row bomb placement is required when the main pick is ready and completes a bomb row.
+  const inRowBombMode = (mainPickReady || mainSpecialPickReady) && willCompleteBombRow;
+
+  const canConfirm = mainPickReady && (!willCompleteBombRow || rowBombCells.length === 4);
+  const canConfirmSpecial = mainSpecialPickReady && (!willCompleteBombRow || rowBombCells.length === 4);
+
+  // Valid cells for the row-bomb 2×2 placement step — mirrors getValidCells bomb logic.
+  const rowBombValidCells = useMemo<Set<string> | undefined>(() => {
+    if (!inRowBombMode) return undefined;
+    const crossedSet = new Set(effectiveMe.crossed_cells as string[]);
+    if (rowBombCells.length === 0) {
+      const result = new Set<string>();
+      for (const key of Object.keys(boardConfig.cells)) {
+        if (!crossedSet.has(key)) result.add(key);
+      }
+      return result;
+    }
+    if (rowBombCells.length >= 4) return new Set<string>();
+    const selIndices = rowBombCells.map((k) => {
+      const [col, row] = k.split("-");
+      return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
+    });
+    const minCol = Math.min(...selIndices.map(([c]) => c));
+    const maxCol = Math.max(...selIndices.map(([c]) => c));
+    const minRow = Math.min(...selIndices.map(([, r]) => r));
+    const maxRow = Math.max(...selIndices.map(([, r]) => r));
+    if (maxCol - minCol > 1 || maxRow - minRow > 1) return new Set<string>();
+    const result = new Set<string>();
+    const acMin = Math.max(0, maxCol - 1);
+    const acMax = Math.min(boardConfig.grid.columns.length - 2, minCol);
+    const arMin = Math.max(0, maxRow - 1);
+    const arMax = Math.min(boardConfig.grid.rows.length - 2, minRow);
+    for (let ac = acMin; ac <= acMax; ac++) {
+      for (let ar = arMin; ar <= arMax; ar++) {
+        const allFit = selIndices.every(([c, r]) => c >= ac && c <= ac + 1 && r >= ar && r <= ar + 1);
+        if (!allFit) continue;
+        for (let dc = 0; dc <= 1; dc++) {
+          for (let dr = 0; dr <= 1; dr++) {
+            const key = `${boardConfig.grid.columns[ac + dc]}-${boardConfig.grid.rows[ar + dr]}`;
+            if (!(key in boardConfig.cells)) continue;
+            if (crossedSet.has(key) || rowBombCells.includes(key)) continue;
+            result.add(key);
+          }
+        }
+      }
+    }
+    return result;
+  }, [inRowBombMode, rowBombCells, boardConfig, effectiveMe.crossed_cells]);
+
   const hintText = useMemo<string | null>(() => {
     if (!isMyBoard || !dice) return null;
+
+    if (inRowBombMode) {
+      const rem = 4 - rowBombCells.length;
+      if (rem > 0) return `Row completed! Now place your bomb — pick ${rem} more cell${rem === 1 ? "" : "s"} to form a 2×2`;
+      return null;
+    }
 
     if (selectedSpecial) {
       switch (dice.special) {
@@ -593,6 +668,8 @@ export default function GamePage() {
   }, [
     isMyBoard,
     dice,
+    inRowBombMode,
+    rowBombCells,
     selectedSpecial,
     selectedColor,
     selectedNumber,
@@ -706,9 +783,9 @@ export default function GamePage() {
                 <ScoreSheet
                   config={boardConfig}
                   crossedCells={viewing.crossed_cells}
-                  selectedCells={isMyBoard ? selectedCells : []}
+                  selectedCells={isMyBoard ? [...selectedCells, ...rowBombCells] : []}
                   onCellClick={isMyBoard ? handleCellClick : undefined}
-                  validCells={isMyBoard ? validCells : undefined}
+                  validCells={isMyBoard ? (inRowBombMode ? rowBombValidCells : validCells) : undefined}
                   myCompletedRows={myCompletedRows}
                   myCompletedCols={myCompletedCols}
                   firstTakenRows={firstTakenRows}

@@ -170,6 +170,40 @@ export function areCellsContiguous(config: BoardConfig, cells: CellKey[]): boole
   return visited.size === cells.length;
 }
 
+// Like areCellsContiguous, but allows same-color already-crossed cells to act as
+// bridges. This lets a player pick e.g. [A] and [C] in one turn when [B] (same color)
+// is already crossed — they're connected through B even though A and C aren't adjacent.
+export function areCellsContiguousWithBridge(
+  config: BoardConfig,
+  cells: CellKey[],
+  crossed: string[],
+): boolean {
+  if (cells.length <= 1) return true;
+  const targetSet = new Set(cells);
+  const crossedSet = new Set(crossed);
+  const color = config.cells[cells[0]]?.color;
+  if (!color) return false;
+
+  const visited = new Set<CellKey>();
+  const queue: CellKey[] = [cells[0]];
+  visited.add(cells[0]);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of getAdjacentCells(config, current)) {
+      if (visited.has(neighbor)) continue;
+      const isTarget = targetSet.has(neighbor);
+      const isBridge = crossedSet.has(neighbor) && config.cells[neighbor]?.color === color;
+      if (isTarget || isBridge) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return cells.every((k) => visited.has(k));
+}
+
 export function getBoardColors(config: BoardConfig): Color[] {
   return [...new Set(Object.values(config.cells).map((c) => c.color))];
 }

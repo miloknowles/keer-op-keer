@@ -38,10 +38,10 @@ A Supabase MCP server is configured in `.mcp.json` at the repo root. It gives Cl
 All from the `app/` directory:
 
 ```bash
-npm run dev       # Start dev server on localhost:3000
-npm test          # Run all unit tests (vitest)
-npm run test:watch  # Watch mode
-npm run build     # Production build
+yarn dev          # Start dev server on localhost:3000
+yarn test         # Run all unit tests (vitest)
+yarn test:watch   # Watch mode
+yarn build        # Production build
 ```
 
 ## Import aliases
@@ -70,7 +70,7 @@ Use `@/boards/board.types` and `@/boards/kok2-standard.json` everywhere — not 
 
 ## Development workflow
 
-**Do not run `npm run build` while the dev server is running** — it will crash the hot-reloading dev build. For builds during active development, use `npm run type-check` or `npm run lint` instead. Full builds should only run when the dev server is stopped.
+**Do not run `yarn build` while the dev server is running** — it will crash the hot-reloading dev build. For builds during active development, use `yarn tsc --noEmit` or `yarn lint` instead. Full builds should only run when the dev server is stopped.
 
 **Dev server management:** Never start the dev server automatically. The user should start/stop it themselves. If you need to test UI changes, ask the user to start the dev server or verify they already have it running.
 

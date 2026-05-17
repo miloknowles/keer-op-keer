@@ -12,13 +12,26 @@ import {
   isAdjacentToRegion,
   isAdjacentToStartZone,
   isValidPlacement,
+  isRowComplete,
   getConnectedRegion,
-  areCellsContiguous,
+  areCellsContiguousWithBridge,
 } from "./sheet";
 
 export type ValidationResult =
   | { valid: true }
   | { valid: false; error: string };
+
+function newlyCompletedBombRows(
+  config: BoardConfig,
+  beforeCrossed: string[],
+  afterCrossed: string[],
+): string[] {
+  return config.grid.rows.filter((row) => {
+    if (isRowComplete(config, row, beforeCrossed)) return false;
+    if (!isRowComplete(config, row, afterCrossed)) return false;
+    return (config.scoring.rowItems as Record<string, string>)[row] === "bomb";
+  });
+}
 
 function ok(): ValidationResult {
   return { valid: true };
@@ -138,16 +151,20 @@ export function validateColorNumberPick(
     buildingCrossed.push(key);
   }
 
-  // Contiguity check — all selected cells must form a single connected group
-  if (!areCellsContiguous(config, cells)) {
+  // Contiguity check — cells must be connected, allowing bridges through same-color
+  // already-crossed cells (e.g. picking A and C when B is already crossed).
+  if (!areCellsContiguousWithBridge(config, cells, player.crossed_cells)) {
     return fail("selected cells must form a single contiguous group");
   }
 
-  // Bomb cells from row completion
+  // Bomb cells from row completion — required when a bomb-item row is newly completed
+  const bombRowsCompleted = newlyCompletedBombRows(config, player.crossed_cells, buildingCrossed);
+  if (bombRowsCompleted.length > 0 && (!pick.bomb_cells || pick.bomb_cells.length === 0)) {
+    return fail("must include bomb_cells when completing a bomb row");
+  }
   if (pick.bomb_cells && pick.bomb_cells.length > 0) {
     const bombResult = validateBombCells(config, pick.bomb_cells);
     if (!bombResult.valid) return fail(`bomb_cells: ${bombResult.error}`);
-    // Bomb cells must not already be crossed (including the cells just placed above)
     const allCrossedAfterPick = new Set(buildingCrossed);
     for (const bk of pick.bomb_cells) {
       if (allCrossedAfterPick.has(bk))
@@ -279,11 +296,16 @@ export function validateSpecialPick(
     }
   }
 
-  // Bomb cells from row completion
+  // Bomb cells from row completion — required when a bomb-item row is newly completed
+  const allCrossedAfterSpecial = [...player.crossed_cells, ...cells];
+  const bombRowsCompletedBySpecial = newlyCompletedBombRows(config, player.crossed_cells, allCrossedAfterSpecial);
+  if (bombRowsCompletedBySpecial.length > 0 && (!pick.bomb_cells || pick.bomb_cells.length === 0)) {
+    return fail("must include bomb_cells when completing a bomb row");
+  }
   if (pick.bomb_cells && pick.bomb_cells.length > 0) {
     const bombResult = validateBombCells(config, pick.bomb_cells);
     if (!bombResult.valid) return fail(`bomb_cells: ${bombResult.error}`);
-    const allCrossedAfterPick = new Set([...player.crossed_cells, ...cells]);
+    const allCrossedAfterPick = new Set(allCrossedAfterSpecial);
     for (const bk of pick.bomb_cells) {
       if (allCrossedAfterPick.has(bk))
         return fail(`bomb cell ${bk} is already crossed`);
@@ -435,9 +457,6 @@ export function getValidCells(
     if (occupiedSet.has(key)) continue;
     if (effectiveColor !== undefined && cell.color !== effectiveColor) continue;
     if (!isValidPlacement(config, key, occupiedCells)) continue;
-    // When cells are already selected, only show cells adjacent to the selection
-    // so the group stays contiguous and the backend contiguity check won't fire.
-    if (selectedCells.length > 0 && !isAdjacentToRegion(config, key, selectedCells)) continue;
     if (canSelectMore) result.add(key);
   }
   return result;

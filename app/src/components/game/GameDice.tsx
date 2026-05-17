@@ -98,7 +98,7 @@ function Die({
 function NumberFace({ value }: { value: string }) {
   const pips = PIPS[value];
   if (!pips) {
-    return <span className="font-black text-xl text-gray-400">?</span>;
+    return <span className="font-black text-xl text-gray-800">?</span>;
   }
   return (
     <div className="grid grid-cols-3 grid-rows-3 gap-0.5 p-2 w-full h-full">
