@@ -142,7 +142,7 @@ First player to complete a column earns the `first` value; all later completers 
 Because the heart count can change between column completions, this value must be recorded at the time of completion and stored per-column. It is NOT simply the player's current heart count applied retroactively. The data model must persist `column_heart_bonuses: Record<string, number>` on `room_players` (or equivalent) so the score sheet can render correctly.
 
 #### Row bonuses (P–V)
-First player to cross off every cell in a row earns **5 points** and the row's item. Subsequent completers earn nothing.
+The first player to cross off every cell in a row earns **5 points** and the row's **item** (box, bomb, or heart). Subsequent completers also earn **5 points** but do **not** receive the item.
 
 | Row | P | Q | R | S | T | U | V |
 |---|---|---|---|---|---|---|---|

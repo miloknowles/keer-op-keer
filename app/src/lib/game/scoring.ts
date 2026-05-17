@@ -61,13 +61,9 @@ export function computeScore(
     columns[col] = printed + player.hearts;
   }
 
-  // Row bonuses — only the first completer earns points
+  // Row bonuses — all completers earn points; only the first also earns the item (handled in effects.ts)
   for (const row of config.grid.rows) {
     if (!isRowComplete(config, row, player.crossed_cells)) continue;
-    const rowCells = config.grid.columns
-      .map((col) => `${col}-${row}`)
-      .filter((key) => key in config.cells);
-    if (!isFirstCompleter(rowCells, player, allPlayers)) continue;
     rows[row] = config.scoring.rowBonuses[row] ?? 0;
   }
 
