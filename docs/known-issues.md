@@ -15,3 +15,19 @@ There is no GitHub Actions workflow to run the test suite on pull requests or pu
 **Fix options:**
 - Add a `.github/workflows/ci.yml` that runs `npm ci && npm test` in the `app/` directory on push/PR
 - Optionally add type-checking (`npm run type-check`) and linting (`npm run lint`) as separate steps
+
+## Auto-advance is unreliable
+
+When all players have submitted their moves, the game should automatically advance to the next round, but this does not always trigger correctly. Players may be stuck waiting on a round that has already been completed by everyone.
+
+**Fix options:**
+- Audit the realtime subscription logic that listens for all-players-submitted and ensure it fires consistently
+- Add a fallback server-side check (e.g. on each move submission, verify if all players are done and force-advance if so)
+
+## Game ending is untested
+
+The end-of-game flow (triggering game over, computing final scores, displaying results) has no automated test coverage.
+
+**Fix options:**
+- Add integration tests that simulate a full game through to completion and assert the correct winner and scores
+- Add unit tests for the specific conditions that trigger game end (e.g. all columns filled, time expiry)
