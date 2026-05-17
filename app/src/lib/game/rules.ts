@@ -10,6 +10,7 @@ import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
   getCell,
   isAdjacentToRegion,
+  isAdjacentToStartZone,
   isValidPlacement,
   getConnectedRegion,
   areCellsContiguous,
@@ -216,12 +217,17 @@ export function validateSpecialPick(
           "fill must cross off the entire connected region, not a subset",
         );
       }
-      // At least one cell must be adjacent to existing region (or start condition)
-      const anyValid = cells.some((key) =>
-        isValidPlacement(config, key, player.crossed_cells),
+      // At least one cell must touch the player's existing region or column H.
+      // "Touching column H" means the cell is in column H or orthogonally adjacent to it.
+      const anyValid = cells.some(
+        (key) =>
+          isValidPlacement(config, key, player.crossed_cells) ||
+          isAdjacentToStartZone(config, key),
       );
       if (!anyValid)
-        return fail("fill region must be adjacent to existing crossed region");
+        return fail(
+          "fill region must be adjacent to existing crossed region or to column H",
+        );
       break;
     }
 

@@ -88,7 +88,7 @@ The `✕` (black X) is a wildcard: the player declares any color when making the
 | Face | Count | Effect |
 |---|---|---|
 | Heart | 2 | Advance your heart track by 1 |
-| Fill | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region. Diagonal does not count. |
+| Fill | 1 | Cross off an entire connected section of one color. At least one cell in the section must be orthogonally adjacent (N/E/S/W) to your existing region **or to column H (the center column)**. Diagonal does not count. |
 | Three-in-a-row | 1 | Cross off any 3 cells in a single horizontal row. All 3 cells must each individually be orthogonally adjacent to your existing region. |
 | Bomb | 1 | Cross off any 2×2 block of cells anywhere (ignores adjacency) |
 | Two stars | 1 | Cross off any 2 star cells that are adjacent to your existing region. The second star can chain off the first (incremental adjacency). |
