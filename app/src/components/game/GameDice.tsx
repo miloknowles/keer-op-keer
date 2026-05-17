@@ -18,10 +18,16 @@ const PIPS: Record<string, boolean[]> = {
   "5": [T, F, T, F, T, F, T, F, T],
 };
 
-const SPECIAL_LABEL: Record<DiceSpecialFace, string> = {
+const SPECIAL_LABEL: Record<DiceSpecialFace, React.ReactNode> = {
   heart: "❤️",
   fill: "≋",
-  three_in_a_row: "|||",
+  three_in_a_row: (
+    <span className="flex gap-0.5">
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+    </span>
+  ),
   bomb: "💣",
   two_stars: "★★",
 };

@@ -481,19 +481,19 @@ describe("validateSpecialPick — three_in_a_row", () => {
   it("accepts 3 cells in same row each adjacent to region", () => {
     // Player has H-S crossed. Cells in row S adjacent to H-S: G-S, I-S
     // Let's use row P after crossing H-P: adjacent in row P: G-P, I-P
-    const player = makePlayer({ crossed_cells: ["H-P"] });
+    const _player = makePlayer({ crossed_cells: ["H-P"] });
     // G-P (pink) and I-P (green) are both adjacent to H-P but different colors — for three_in_a_row color doesn't matter
     // We need a third cell adjacent to H-P in row P — but H-P has only G-P and I-P in row P
     // Let's use H-Q region: cross H-Q, then pick 3 cells in row Q
     // H-Q (pink), adjacent in row Q: G-Q (pink), I-Q
-    const player2 = makePlayer({ crossed_cells: ["H-P", "H-Q"] });
+    const _player2 = makePlayer({ crossed_cells: ["H-P", "H-Q"] });
     // In row Q: G-Q adjacent to H-Q, what's I-Q?
     const iq = config.cells["I-Q"];
     if (!iq) return; // skip if I-Q doesn't exist
-    const jq = config.cells["J-Q"];
+    const _jq = config.cells["J-Q"];
     // G-Q is adjacent to H-Q ✓; I-Q needs to be adjacent to H-Q or something in crossed
     // Actually, each cell needs to be individually adjacent to the crossed region
-    const pick: SpecialPick = {
+    const _pick: SpecialPick = {
       type: "special",
       cells: ["G-Q", "H-Q", "I-Q"],
     };

@@ -51,7 +51,7 @@ export function ResourceTracks({
             ({boxesUnlocked - boxesSpent} avail)
           </span>
         </div>
-        <div className="flex gap-1 flex-wrap max-w-[200px]">
+        <div className="flex gap-1">
           {Array.from({ length: boxSize }).map((_, i) => {
             const spent = i < boxesSpent;
             const unlocked = i < boxesUnlocked;

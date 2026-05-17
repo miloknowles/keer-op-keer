@@ -35,7 +35,6 @@ import type {
   RoomHistoryRow,
   Color,
 } from "@/types/game";
-import type { PlayerPresence } from "@/types/presence";
 
 const SEAT_TO_COLOR: Record<number, Color> = {
   0: "p",
@@ -133,7 +132,7 @@ export default function GamePage() {
     });
   }, [hoveredCell, viewingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dice = currentHistory
+  const dice = useMemo(() => currentHistory
     ? {
         colors: currentHistory.dice_colors as [
           DiceColorFace,
@@ -147,7 +146,8 @@ export default function GamePage() {
         ],
         special: currentHistory.dice_special,
       }
-    : null;
+    : null,
+  [currentHistory]);
 
   const cellCursors = useMemo(() => {
     const result: Record<string, { color: Color; displayName: string }[]> = {};
@@ -171,7 +171,7 @@ export default function GamePage() {
   const isMyBoard = viewingId === effectiveMe.id;
   const isActivePlayer = effectiveMe.seat_index === room.current_player_index;
   const availableBoxes = effectiveMe.boxes_unlocked - effectiveMe.boxes_spent;
-  const openRound = room.round_number <= 2;
+  const openRound = room.round_number < 2;
   const activePick = currentHistory?.active_pick ?? null;
   const specialTakenByActive = !openRound && !isActivePlayer && activePick?.type === "special";
   const canUseSpecial = availableBoxes > 0 && !!dice && !specialTakenByActive;
@@ -307,10 +307,13 @@ export default function GamePage() {
     });
   }
 
+  useEffect(() => {
+    if (dice) setRolling(false);
+  }, [dice]);
+
   async function handleRoll() {
     setRolling(true);
     await fetch(`/api/rooms/${room.code}/roll`, { method: "POST" });
-    setRolling(false);
   }
 
   async function handleAdvanceRound() {
@@ -367,7 +370,7 @@ export default function GamePage() {
       const numberFace = dice.numbers[selectedNumber];
       // Wildcard color: infer declared_color from first selected cell
       const declaredColor = colorFace === "✕"
-        ? ((boardConfig.cells as any)[selectedCells[0]]?.color ?? colorFace)
+        ? (boardConfig.cells[selectedCells[0]]?.color ?? colorFace)
         : colorFace;
       // Wildcard number: declared_number = cell count
       const declaredNumber = numberFace === "?" ? selectedCells.length : parseInt(numberFace, 10);
@@ -490,7 +493,7 @@ export default function GamePage() {
     const declaredNumberFace = dice.numbers[selectedNumber];
     const wildcardLockedColor =
       isColorWildcard(declaredColorFace) && selectedCells.length > 0
-        ? (boardConfig.cells as any)[selectedCells[0]]?.color
+        ? boardConfig.cells[selectedCells[0]]?.color
         : undefined;
     const colorName = wildcardLockedColor
       ? (COLOR_NAMES[wildcardLockedColor] ?? wildcardLockedColor)
@@ -506,7 +509,7 @@ export default function GamePage() {
     const remaining = required - selectedCells.length;
     if (remaining === 0) return null;
     return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
-  }, [isMyBoard, dice, selectedSpecial, selectedColor, selectedNumber, selectedCells]);
+  }, [isMyBoard, dice, selectedSpecial, selectedColor, selectedNumber, selectedCells, boardConfig.cells]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -544,14 +547,7 @@ export default function GamePage() {
                 </svg>
               )}
             </button>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-kok-green animate-pulse" />
-              <span className="font-medium text-kok-green">
-                {activePlayer?.display_name ?? "—"} goes first
-              </span>
-            </div>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -652,7 +648,7 @@ export default function GamePage() {
                 const pickStatus = currentHistory
                   ? thisPlayerHasPicked
                     ? "done"
-                    : isActive || activePlayerHasPicked
+                    : openRound || isActive || activePlayerHasPicked
                       ? "waiting"
                       : "blocked"
                   : null;
@@ -684,7 +680,7 @@ export default function GamePage() {
                         </span>
                         {pickStatus && pickStatus !== "done" && (
                           <span className="text-[10px] text-gray-400 leading-none">
-                            {pickStatus === "waiting" ? "Waiting for their pick" : "Can't pick yet"}
+                            {pickStatus === "waiting" ? (p.id === me.id ? "Waiting for your pick" : "Waiting for their pick") : "Can't pick yet"}
                           </span>
                         )}
                       </div>

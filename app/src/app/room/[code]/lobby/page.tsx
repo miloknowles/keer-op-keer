@@ -79,7 +79,7 @@ export default function LobbyPage() {
   async function handleAddTestPlayer() {
     setAddingPlayer(true);
     const testPlayerNum = players.filter((p) => p.user_id === me.user_id).length + 1;
-    const res = await fetch(`/api/rooms/${room.code}/join`, {
+    await fetch(`/api/rooms/${room.code}/join`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ display_name: `Test Player ${testPlayerNum}` }),
@@ -221,7 +221,12 @@ export default function LobbyPage() {
           </p>
         )}
         <button
-          onClick={() => router.replace("/")}
+          onClick={async () => {
+            await fetch(`/api/rooms/${room.code}/players/${me.id}`, {
+              method: "DELETE",
+            });
+            router.replace("/");
+          }}
           className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
         >
           Leave room

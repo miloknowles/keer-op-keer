@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 export async function DELETE(
   _req: NextRequest,
@@ -42,16 +41,11 @@ export async function DELETE(
   const { data: meList } = await meQuery;
   const me = meList?.[0] ?? null;
   if (!me) return NextResponse.json({ error: "Not in room" }, { status: 403 });
-  if (me.id !== room.host_id) {
+  const isSelf = playerId === me.id;
+  if (!isSelf && me.id !== room.host_id) {
     return NextResponse.json(
       { error: "Only the host can kick players" },
       { status: 403 },
-    );
-  }
-  if (playerId === me.id) {
-    return NextResponse.json(
-      { error: "Cannot kick yourself" },
-      { status: 400 },
     );
   }
 

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PlayerPresence } from "@/types/presence";
 
 export function usePresence(roomId: string, myPresence: PlayerPresence) {
   const [presences, setPresences] = useState<Record<string, PlayerPresence>>({});
   const supabaseRef = useRef(createClient());
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const currentStateRef = useRef<PlayerPresence>(myPresence);
   const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -41,7 +42,8 @@ export function usePresence(roomId: string, myPresence: PlayerPresence) {
       }
       channel.unsubscribe();
     };
-  }, [roomId, myPresence.userId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, myPresence.userId]); // myPresence omitted: reconnecting on every cursor update would drop the channel
 
   const updatePresence = (update: Partial<PlayerPresence>) => {
     const merged = { ...currentStateRef.current, ...update };

@@ -331,7 +331,7 @@ export function canPass(
 ): boolean {
   // Special die is unavailable to non-active players in round 3+ when active player used it.
   const specialAvailable =
-    round < 3 || isActivePlayer || activePick?.type !== "special";
+    round < 2 || isActivePlayer || activePick?.type !== "special";
   if (player.boxes_unlocked - player.boxes_spent >= 1 && specialAvailable) return false;
 
   const allColors = getBoardColors(config);
