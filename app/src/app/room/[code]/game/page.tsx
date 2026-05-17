@@ -45,6 +45,8 @@ import type {
   Color,
 } from "@/types/game";
 
+const MEDALS = ["🥇", "🥈", "🥉"];
+
 const SEAT_TO_COLOR: Record<number, Color> = {
   0: "p",
   1: "b",
@@ -286,7 +288,6 @@ export default function GamePage() {
     });
   }, [selectedCells, effectiveMe.crossed_cells, boardConfig]);
 
-  const MEDALS = ["🥇", "🥈", "🥉"];
   const playerMedals = useMemo<Record<string, string>>(() => {
     if (room.status !== "finished") return {};
     const sorted = [...players].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
