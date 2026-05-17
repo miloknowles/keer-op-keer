@@ -67,7 +67,43 @@ function scoreGroup(
 }
 
 // Greedily extend a selection from `seed` up to `count` cells of `color`,
-// each time picking the highest-value adjacent uncrossed same-color cell.
+// Find all uncrossed same-color cells reachable from any cell in `group`,
+// traversing through same-color already-crossed cells as bridges.
+// This mirrors areCellsContiguousWithBridge's reachability model.
+function bridgeReachableCandidates(
+  config: BoardConfig,
+  color: Color,
+  group: string[],
+  crossedCells: string[],
+): string[] {
+  const crossedSet = new Set(crossedCells);
+  const candidates: string[] = [];
+  const visited = new Set<string>(group);
+  const queue = [...group];
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    for (const adj of getAdjacentCells(config, cur)) {
+      if (visited.has(adj)) continue;
+      const cell = config.cells[adj];
+      if (!cell || cell.color !== color) continue;
+      visited.add(adj);
+      if (crossedSet.has(adj)) {
+        // Same-color crossed cell — traverse it as a bridge to find more candidates
+        queue.push(adj);
+      } else {
+        candidates.push(adj);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+// Greedily extend a selection from `seed` up to `count` cells of `color`,
+// each time picking the highest-value reachable uncrossed same-color cell.
+// Reachability traverses through same-color crossed cells (bridges), matching
+// the areCellsContiguousWithBridge rule used in move validation.
 // Returns null if we can't reach `count` cells.
 function greedyExtend(
   config: BoardConfig,
@@ -76,24 +112,18 @@ function greedyExtend(
   count: number,
   crossedCells: string[],
 ): string[] | null {
-  const crossedSet = new Set(crossedCells);
   const group = [seed];
 
   while (group.length < count) {
-    const groupSet = new Set(group);
+    const candidates = bridgeReachableCandidates(config, color, group, crossedCells);
+
     let bestKey: string | null = null;
     let bestVal = -Infinity;
-
-    for (const key of group) {
-      for (const adj of getAdjacentCells(config, key)) {
-        if (crossedSet.has(adj) || groupSet.has(adj)) continue;
-        const cell = config.cells[adj];
-        if (!cell || cell.color !== color) continue;
-        const val = cellValue(config, adj);
-        if (val > bestVal) {
-          bestVal = val;
-          bestKey = adj;
-        }
+    for (const adj of candidates) {
+      const val = cellValue(config, adj);
+      if (val > bestVal) {
+        bestVal = val;
+        bestKey = adj;
       }
     }
 
