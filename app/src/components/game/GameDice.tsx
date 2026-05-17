@@ -6,6 +6,7 @@ import type {
   DiceNumberFace,
   DiceSpecialFace,
 } from "@/types/game";
+import { SPECIAL_DESCRIPTION } from "@/lib/display";
 
 // 3×3 pip grid: [TL, TC, TR, ML, MC, MR, BL, BC, BR]
 const T = true,
@@ -42,14 +43,6 @@ const SPECIAL_LABEL: Record<DiceSpecialFace, React.ReactNode> = {
   ),
   bomb: "💣",
   two_stars: "★★",
-};
-
-const SPECIAL_DESCRIPTION: Record<DiceSpecialFace, string> = {
-  heart: "Heart (+1 heart track)",
-  fill: "Fill (connected section)",
-  three_in_a_row: "3-in-a-row",
-  bomb: "Bomb (any 2×2)",
-  two_stars: "Two stars (any 2 ★)",
 };
 
 const COLOR_FACE_TEXT: Record<DiceColorFace, string> = {
@@ -98,7 +91,7 @@ function Die({
 function NumberFace({ value }: { value: string }) {
   const pips = PIPS[value];
   if (!pips) {
-    return <span className="font-black text-xl text-gray-400">?</span>;
+    return <span className="font-black text-xl text-gray-800">?</span>;
   }
   return (
     <div className="grid grid-cols-3 grid-rows-3 gap-0.5 p-2 w-full h-full">

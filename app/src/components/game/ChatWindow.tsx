@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
-  const { messages, loading, sendMessage } = useRoomChat(roomId, playerId);
+  const { messages, loading, sendMessage } = useRoomChat(roomId, playerId, true);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 

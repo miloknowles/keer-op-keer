@@ -110,8 +110,6 @@ export function RoomProvider({
           setRoom(updated);
           if (updated.status === "in_progress") {
             router.replace(`/room/${code}/game`);
-          } else if (updated.status === "finished") {
-            router.replace(`/room/${code}/finished`);
           }
         },
       )
@@ -165,6 +163,18 @@ export function RoomProvider({
           } else {
             setPlayers((prev) => prev.filter((p) => p.id !== deleted.id));
           }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "room_boards",
+          filter: `room_id=eq.${room.id}`,
+        },
+        (payload) => {
+          setBoard(payload.new as RoomBoardRow);
         },
       )
       .subscribe();

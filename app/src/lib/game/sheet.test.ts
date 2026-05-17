@@ -11,6 +11,7 @@ import {
   isValidPlacement,
   getConnectedRegion,
   areCellsContiguous,
+  areCellsContiguousWithBridge,
   colorsCompleted,
   uncrossedStars,
 } from "./sheet";
@@ -170,6 +171,35 @@ describe("areCellsContiguous", () => {
     // H-P and A-P are not adjacent; G-P is adjacent to H-P
     // So [H-P, G-P, A-P] is not contiguous
     expect(areCellsContiguous(config, ["H-P", "G-P", "A-P"])).toBe(false);
+  });
+});
+
+describe("areCellsContiguousWithBridge", () => {
+  it("returns true for a single cell", () => {
+    expect(areCellsContiguousWithBridge(config, ["H-P"], [])).toBe(true);
+  });
+
+  it("returns true for two directly adjacent cells (no bridge needed)", () => {
+    expect(areCellsContiguousWithBridge(config, ["H-P", "G-P"], [])).toBe(true);
+  });
+
+  it("returns true when two cells are bridged by a same-color crossed cell", () => {
+    // Pink region: G-P and I-Q are both pink; G-Q (pink) is between them via adjacency path
+    // Simpler: E-Q and F-R are orange; F-Q (orange) bridges them
+    // E-Q and G-R are both orange; if F-Q and F-R (orange) are crossed, E-Q→F-Q→F-R→G-R is bridged
+    // Use the known orange connected region: E-Q, F-Q, F-R, G-R, H-R
+    // If F-Q and F-R are crossed, then E-Q and G-R should be bridged
+    expect(areCellsContiguousWithBridge(config, ["E-Q", "G-R"], ["F-Q", "F-R"])).toBe(true);
+  });
+
+  it("returns false when bridge cell is a different color", () => {
+    // G-P is pink; I-P is green; H-P (green) is between them but is a different color from G-P
+    // So G-P and I-P cannot bridge through H-P (different color)
+    expect(areCellsContiguousWithBridge(config, ["G-P", "I-P"], ["H-P"])).toBe(false);
+  });
+
+  it("returns false for two non-adjacent cells with no valid bridge", () => {
+    expect(areCellsContiguousWithBridge(config, ["A-P", "H-P"], [])).toBe(false);
   });
 });
 

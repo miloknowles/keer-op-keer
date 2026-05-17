@@ -2,15 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { COLOR_BG } from "@/lib/constants";
-import type { BoardConfig, Color } from "@/types/game";
-
-// JSON stores specials as flat booleans; types use special?: "star"|"box"
-type RawCell = {
-  color: Color;
-  star?: boolean;
-  box?: boolean;
-  special?: string;
-};
+import type { BoardConfig, Color, RawCell } from "@/types/game";
 
 interface ScoreSheetProps {
   config: BoardConfig;
@@ -59,7 +51,12 @@ export function ScoreSheet({
         {grid.columns.map((col) => (
           <div
             key={col}
-            className="w-10 text-center text-xs font-bold text-gray-500 shrink-0"
+            className={cn(
+              "w-10 text-center text-xs font-bold shrink-0",
+              grid.startColumns.includes(col)
+                ? "text-kok-orange"
+                : "text-gray-500",
+            )}
           >
             {col}
           </div>
@@ -128,6 +125,7 @@ export function ScoreSheet({
                   !validCells.has(key);
 
                 const cursors = cellCursors[key] ?? [];
+                const isStartCol = grid.startColumns.includes(col);
 
                 return (
                   <button
@@ -137,6 +135,7 @@ export function ScoreSheet({
                     className={cn(
                       "w-10 h-10 shrink-0 rounded relative flex items-center justify-center transition-all",
                       COLOR_BG[color],
+                      isStartCol && "shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)]",
                       isCrossed && "brightness-90",
                       isSelected && "ring-2 ring-inset ring-black/70",
                       onCellClick && !isCrossed && !isInvalid && "hover:brightness-110 cursor-pointer",

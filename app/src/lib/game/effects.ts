@@ -1,16 +1,9 @@
 import type { BoardConfig } from "@/boards/board.types";
-import type { GamePick, DiceRoll, RoomPlayerRow } from "../../types/game";
+import type { GamePick, DiceRoll, RoomPlayerRow, PickResult } from "../../types/game";
 import { isColorWildcard, isNumberWildcard } from "./dice";
 import { isRowComplete, isColumnComplete, getCell } from "./sheet";
 
-export interface PickResult {
-  crossed_cells: string[];
-  wildcards: number;
-  boxes_unlocked: number;
-  boxes_spent: number;
-  hearts: number;
-  column_heart_bonuses: Record<string, number>;
-}
+export type { PickResult };
 
 // Computes the player's new state after applying a pick. Pure — no DB I/O.
 // `otherPlayers` is used to determine row-completion "first completer" bonuses.

@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  uniqueNamesGenerator,
+  adjectives,
+  animals,
+} from "unique-names-generator";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,59 +18,12 @@ export function generateRoomCode() {
   ).join("");
 }
 
-const ADJECTIVES = [
-  "Bold",
-  "Brave",
-  "Calm",
-  "Clever",
-  "Cool",
-  "Daring",
-  "Eager",
-  "Fast",
-  "Fierce",
-  "Gentle",
-  "Happy",
-  "Jolly",
-  "Keen",
-  "Lucky",
-  "Mighty",
-  "Noble",
-  "Quick",
-  "Sharp",
-  "Sly",
-  "Swift",
-  "Wild",
-  "Wise",
-];
-
-const ANIMALS = [
-  "Badger",
-  "Bear",
-  "Crane",
-  "Deer",
-  "Eagle",
-  "Falcon",
-  "Fox",
-  "Hawk",
-  "Heron",
-  "Ibis",
-  "Jaguar",
-  "Lynx",
-  "Mink",
-  "Otter",
-  "Owl",
-  "Panda",
-  "Raven",
-  "Robin",
-  "Tiger",
-  "Viper",
-  "Wolf",
-];
-
 export function generateRandomName(): string {
-  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
-  return `${adj} ${animal}`;
+  return uniqueNamesGenerator({
+    dictionaries: [adjectives, animals],
+    style: "capital",
+    separator: " ",
+  });
 }
 
 export const NAME_KEY = "kok_display_name";

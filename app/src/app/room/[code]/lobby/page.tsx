@@ -1,21 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Avatar from "boring-avatars";
+import { useSound } from "react-sounds";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
-import { SEAT_COLORS } from "@/lib/constants";
+import { MAX_PLAYERS } from "@/lib/constants";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SettingsDialog } from "./settings-dialog";
-
-const MAX_PLAYERS = 6;
 
 export default function LobbyPage() {
   const router = useRouter();
   const { room, players, me, isHost } = useRoomContext();
   const supabase = useRef(createClient()).current;
+
+  const { play: playJoinSound } = useSound("system/device_connect", { volume: 0.6 });
+  const prevPlayerCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevPlayerCountRef.current === null) {
+      prevPlayerCountRef.current = players.length;
+      return;
+    }
+    if (players.length > prevPlayerCountRef.current) playJoinSound();
+    prevPlayerCountRef.current = players.length;
+  }, [players.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [copied, setCopied] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -133,12 +143,7 @@ export default function LobbyPage() {
                 className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm"
               >
                 <div className="shrink-0 rounded-full overflow-hidden shadow-sm">
-                  <Avatar
-                    name={player.display_name}
-                    variant="beam"
-                    size={36}
-                    colors={SEAT_COLORS[player.seat_index % SEAT_COLORS.length]}
-                  />
+                  <PlayerAvatar name={player.display_name} seatIndex={player.seat_index} size={36} />
                 </div>
 
                 {isMe && editingId === player.id ? (

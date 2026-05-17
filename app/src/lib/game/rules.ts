@@ -5,6 +5,7 @@ import type {
   GamePick,
   DiceRoll,
   RoomPlayerRow,
+  ValidationResult,
 } from "../../types/game";
 import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
@@ -12,13 +13,31 @@ import {
   isAdjacentToRegion,
   isAdjacentToStartZone,
   isValidPlacement,
+  isRowComplete,
   getConnectedRegion,
-  areCellsContiguous,
+  areCellsContiguousWithBridge,
 } from "./sheet";
 
-export type ValidationResult =
-  | { valid: true }
-  | { valid: false; error: string };
+const ROUND_FOR_SPECIAL_ORDERING = 3;
+const BOMB_CELL_COUNT = 4;
+const TWO_STARS_CELL_COUNT = 2;
+const THREE_IN_A_ROW_MIN = 1;
+const THREE_IN_A_ROW_MAX = 3;
+const VALID_NUMBER_MIN = 1;
+const VALID_NUMBER_MAX = 5;
+
+
+function newlyCompletedBombRows(
+  config: BoardConfig,
+  beforeCrossed: string[],
+  afterCrossed: string[],
+): string[] {
+  return config.grid.rows.filter((row) => {
+    if (isRowComplete(config, row, beforeCrossed)) return false;
+    if (!isRowComplete(config, row, afterCrossed)) return false;
+    return (config.scoring.rowItems as Record<string, string>)[row] === "bomb";
+  });
+}
 
 function ok(): ValidationResult {
   return { valid: true };
@@ -31,7 +50,7 @@ export function validateBombCells(
   config: BoardConfig,
   cells: string[],
 ): ValidationResult {
-  if (cells.length !== 4) return fail("bomb requires exactly 4 cells");
+  if (cells.length !== BOMB_CELL_COUNT) return fail("bomb requires exactly 4 cells");
   for (const key of cells) {
     if (!getCell(config, key))
       return fail(`cell ${key} does not exist on board`);
@@ -77,7 +96,7 @@ export function validateColorNumberPick(
   if (![0, 1, 2].includes(number_die)) return fail("invalid number_die index");
 
   // In rounds 3+, non-active players cannot use the dice the active player used
-  if (round >= 3 && !isActivePlayer) {
+  if (round >= ROUND_FOR_SPECIAL_ORDERING && !isActivePlayer) {
     if (activePick === null) return fail("active player has not yet picked");
     if (activePick.type === "color_number") {
       if (color_die === activePick.color_die)
@@ -103,7 +122,7 @@ export function validateColorNumberPick(
   }
 
   // Declared number is valid
-  if (declared_number < 1 || declared_number > 5)
+  if (declared_number < VALID_NUMBER_MIN || declared_number > VALID_NUMBER_MAX)
     return fail("declared_number must be 1–5");
   if (!numberIsWild && numberFace !== String(declared_number)) {
     return fail(
@@ -138,16 +157,20 @@ export function validateColorNumberPick(
     buildingCrossed.push(key);
   }
 
-  // Contiguity check — all selected cells must form a single connected group
-  if (!areCellsContiguous(config, cells)) {
+  // Contiguity check — cells must be connected, allowing bridges through same-color
+  // already-crossed cells (e.g. picking A and C when B is already crossed).
+  if (!areCellsContiguousWithBridge(config, cells, player.crossed_cells)) {
     return fail("selected cells must form a single contiguous group");
   }
 
-  // Bomb cells from row completion
+  // Bomb cells from row completion — required when a bomb-item row is newly completed
+  const bombRowsCompleted = newlyCompletedBombRows(config, player.crossed_cells, buildingCrossed);
+  if (bombRowsCompleted.length > 0 && (!pick.bomb_cells || pick.bomb_cells.length === 0)) {
+    return fail("must include bomb_cells when completing a bomb row");
+  }
   if (pick.bomb_cells && pick.bomb_cells.length > 0) {
     const bombResult = validateBombCells(config, pick.bomb_cells);
     if (!bombResult.valid) return fail(`bomb_cells: ${bombResult.error}`);
-    // Bomb cells must not already be crossed (including the cells just placed above)
     const allCrossedAfterPick = new Set(buildingCrossed);
     for (const bk of pick.bomb_cells) {
       if (allCrossedAfterPick.has(bk))
@@ -170,10 +193,12 @@ export function validateSpecialPick(
   const availableBoxes = player.boxes_unlocked - player.boxes_spent;
   if (availableBoxes < 1) return fail("no boxes available");
 
-  // In rounds 3+, non-active players cannot use the special die if the active
-  // player already claimed it.
-  if (round >= 3 && !isActivePlayer && activePick?.type === "special") {
-    return fail("special die already used by active player");
+  // In rounds 3+, non-active players must wait for the active player to pick,
+  // then cannot use the special if the active player already claimed it.
+  if (round >= ROUND_FOR_SPECIAL_ORDERING && !isActivePlayer) {
+    if (activePick === null) return fail("active player has not yet picked");
+    if (activePick.type === "special")
+      return fail("special die already used by active player");
   }
 
   const crossedSet = new Set(player.crossed_cells);
@@ -232,7 +257,7 @@ export function validateSpecialPick(
     }
 
     case "three_in_a_row": {
-      if (cells.length < 1 || cells.length > 3)
+      if (cells.length < THREE_IN_A_ROW_MIN || cells.length > THREE_IN_A_ROW_MAX)
         return fail("three_in_a_row requires 1–3 cells");
       const rows = cells.map((k) => k.split("-")[1]);
       if (new Set(rows).size !== 1)
@@ -253,7 +278,7 @@ export function validateSpecialPick(
     }
 
     case "bomb": {
-      if (cells.length !== 4) return fail("bomb requires exactly 4 cells");
+      if (cells.length !== BOMB_CELL_COUNT) return fail("bomb requires exactly 4 cells");
       for (const key of cells) {
         if (crossedSet.has(key)) return fail(`cell ${key} is already crossed`);
       }
@@ -263,7 +288,7 @@ export function validateSpecialPick(
     }
 
     case "two_stars": {
-      if (cells.length !== 2) return fail("two_stars requires exactly 2 cells");
+      if (cells.length !== TWO_STARS_CELL_COUNT) return fail("two_stars requires exactly 2 cells");
       const buildingCrossed = [...player.crossed_cells];
       for (const key of cells) {
         const cell = getCell(config, key);
@@ -279,11 +304,16 @@ export function validateSpecialPick(
     }
   }
 
-  // Bomb cells from row completion
+  // Bomb cells from row completion — required when a bomb-item row is newly completed
+  const allCrossedAfterSpecial = [...player.crossed_cells, ...cells];
+  const bombRowsCompletedBySpecial = newlyCompletedBombRows(config, player.crossed_cells, allCrossedAfterSpecial);
+  if (bombRowsCompletedBySpecial.length > 0 && (!pick.bomb_cells || pick.bomb_cells.length === 0)) {
+    return fail("must include bomb_cells when completing a bomb row");
+  }
   if (pick.bomb_cells && pick.bomb_cells.length > 0) {
     const bombResult = validateBombCells(config, pick.bomb_cells);
     if (!bombResult.valid) return fail(`bomb_cells: ${bombResult.error}`);
-    const allCrossedAfterPick = new Set([...player.crossed_cells, ...cells]);
+    const allCrossedAfterPick = new Set(allCrossedAfterSpecial);
     for (const bk of pick.bomb_cells) {
       if (allCrossedAfterPick.has(bk))
         return fail(`bomb cell ${bk} is already crossed`);
@@ -427,17 +457,26 @@ export function getValidCells(
   const occupiedCells = [...crossed, ...selectedCells];
   const occupiedSet = new Set(occupiedCells);
   const result = new Set<string>();
-  const hasNumberLimit =
-    selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
-  const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
+  const required =
+    selectedNumber === undefined
+      ? Infinity
+      : isNumberWildcard(declaredNumberFace)
+      ? VALID_NUMBER_MAX
+      : parseInt(declaredNumberFace, 10);
   const canSelectMore = selectedCells.length < required;
   for (const [key, cell] of Object.entries(config.cells)) {
     if (occupiedSet.has(key)) continue;
     if (effectiveColor !== undefined && cell.color !== effectiveColor) continue;
     if (!isValidPlacement(config, key, occupiedCells)) continue;
-    // When cells are already selected, only show cells adjacent to the selection
-    // so the group stays contiguous and the backend contiguity check won't fire.
-    if (selectedCells.length > 0 && !isAdjacentToRegion(config, key, selectedCells)) continue;
+    // Once cells are selected, only allow cells that keep the selection contiguous
+    // (using same-color crossed cells as bridges). This prevents picking from two
+    // separate regions in one turn.
+    if (
+      selectedCells.length > 0 &&
+      !areCellsContiguousWithBridge(config, [...selectedCells, key], crossed)
+    ) {
+      continue;
+    }
     if (canSelectMore) result.add(key);
   }
   return result;

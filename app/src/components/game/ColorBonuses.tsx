@@ -1,5 +1,5 @@
 import { getBoardColors, isColorComplete, getCellsOfColor } from "@/lib/game/sheet";
-import { COLOR_BG, COLOR_NAMES } from "@/lib/constants";
+import { COLOR_BG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { BoardConfig } from "@/boards/board.types";
 
@@ -31,7 +31,7 @@ export function ColorBonuses({
         Colors
       </div>
       {/* Column headers */}
-      <div className="flex gap-1 mb-1 pl-16">
+      <div className="flex gap-1 mb-1">
         <div className="w-8 text-center text-[9px] font-semibold text-gray-400 uppercase">1st</div>
         <div className="w-8 text-center text-[9px] font-semibold text-gray-400 uppercase">2nd</div>
       </div>
@@ -56,11 +56,6 @@ export function ColorBonuses({
 
           return (
             <div key={color} className="flex items-center gap-1">
-              {/* Color name label */}
-              <div className="w-14 text-xs font-medium text-gray-600 capitalize">
-                {COLOR_NAMES[color]}
-              </div>
-
               {/* First-place square */}
               <div
                 className={cn(

@@ -120,6 +120,32 @@ export type GamePick = ColorNumberPick | SpecialPick | PassPick;
 // Scoring
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Game logic results
+// ---------------------------------------------------------------------------
+
+export type ValidationResult =
+  | { valid: true }
+  | { valid: false; error: string };
+
+export interface PickResult {
+  crossed_cells: string[];
+  wildcards: number;
+  boxes_unlocked: number;
+  boxes_spent: number;
+  hearts: number;
+  column_heart_bonuses: Record<string, number>;
+}
+
+// Raw board cell shape as stored in JSON (uses flat booleans for specials).
+// BoardCell in board.types uses special?: "star"|"box" — this covers the legacy format.
+export type RawCell = {
+  color: Color;
+  star?: boolean;
+  box?: boolean;
+  special?: string;
+};
+
 export interface ScoreBreakdown {
   columns: Record<string, number>;
   rows: Record<string, number>;

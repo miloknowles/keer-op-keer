@@ -1,15 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Avatar from "boring-avatars";
+import { useSound } from "react-sounds";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import {
   isRowComplete,
   isColumnComplete,
+  isColorComplete,
+  getBoardColors,
   getConnectedRegion,
 } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import { getValidCells } from "@/lib/game/rules";
-import { SEAT_COLORS, COLOR_NAMES } from "@/lib/constants";
+import { computeHintText } from "@/lib/game/hint";
+import { COLOR_NAMES, MEDALS, SEAT_TO_COLOR } from "@/lib/constants";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
 import { ResourceTracks } from "@/components/game/ResourceTracks";
@@ -17,11 +22,12 @@ import { ColorBonuses } from "@/components/game/ColorBonuses";
 import { ChatWindow } from "@/components/game/ChatWindow";
 import { HistoryPanel } from "@/components/game/HistoryPanel";
 import { ScoreDialog } from "@/components/game/ScoreDialog";
+import { GameOverDialog } from "@/components/game/GameOverDialog";
 import { useRoomContext } from "@/lib/context/room";
-import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
 import { useRoomChat } from "@/hooks/use-room-chat";
-import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { useGameHistory } from "@/hooks/use-game-history";
+import { DEV_MULTI_SEAT, DEV_ADMIN_BOARD } from "@/lib/devFlags";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -37,26 +43,15 @@ import type {
   DiceColorFace,
   DiceNumberFace,
   BoardConfig,
-  RoomHistoryRow,
   Color,
 } from "@/types/game";
-
-const SEAT_TO_COLOR: Record<number, Color> = {
-  0: "p",
-  1: "b",
-  2: "y",
-  3: "g",
-  4: "o",
-};
 
 export default function GamePage() {
   const { room, me, players, board } = useRoomContext();
   const boardConfig = board.config as unknown as BoardConfig;
 
-  const supabase = useRef(createClient()).current;
-  const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(
-    null,
-  );
+  const prevCrossedRef = useRef<Record<string, string[]>>({});
+  const currentHistory = useGameHistory(room.id, room.round_number);
 
   const [viewingId, setViewingId] = useState(me.id);
   const [chatOpen, setChatOpen] = useState(false);
@@ -72,8 +67,14 @@ export default function GamePage() {
   const [skipConfirming, setSkipConfirming] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [scoresOpen, setScoresOpen] = useState(false);
+  const [gameOverOpen, setGameOverOpen] = useState(room.status === "finished");
+  const [rowBombCells, setRowBombCells] = useState<string[]>([]);
 
-  const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
+  const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id, chatOpen);
+  const { play: playDiceRollSound } = useSound("notification/popup", { volume: 0.6 });
+  const { play: playPickSound } = useSound("notification/completed", { volume: 0.3 });
+  const { play: playCellClickSound } = useSound("ui/button_soft", { volume: 0.4 });
+  const { play: playCompletionSound } = useSound("notification/success", { volume: 0.6 });
 
   useEffect(() => {
     if (chatOpen) {
@@ -87,50 +88,6 @@ export default function GamePage() {
     color: SEAT_TO_COLOR[me.seat_index] ?? "p",
     cursor: { cellKey: hoveredCell, boardOwnerId: viewingId },
   });
-
-  useEffect(() => {
-    supabase
-      .from("room_history")
-      .select("*")
-      .eq("room_id", room.id)
-      .eq("round_number", room.round_number)
-      .maybeSingle()
-      .then(({ data }) => setCurrentHistory(data ?? null));
-
-    const channel = supabase
-      .channel(`history:${room.id}:${room.round_number}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "room_history",
-          filter: `room_id=eq.${room.id}`,
-        },
-        (payload) => {
-          const row = payload.new as RoomHistoryRow;
-          if (row.round_number === room.round_number) setCurrentHistory(row);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "room_history",
-          filter: `room_id=eq.${room.id}`,
-        },
-        (payload) => {
-          const row = payload.new as RoomHistoryRow;
-          if (row.round_number === room.round_number) setCurrentHistory(row);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [room.id, room.round_number]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     updatePresence({
@@ -188,7 +145,11 @@ export default function GamePage() {
   const activePick = currentHistory?.active_pick ?? null;
   const specialTakenByActive =
     !openRound && !isActivePlayer && activePick?.type === "special";
-  const canUseSpecial = availableBoxes > 0 && !!dice && !specialTakenByActive;
+  const canUseSpecial =
+    availableBoxes > 0 &&
+    !!dice &&
+    !specialTakenByActive &&
+    (openRound || isActivePlayer || !!activePick);
   const allPicksSubmitted =
     !!currentHistory &&
     !!currentHistory.active_pick &&
@@ -217,6 +178,39 @@ export default function GamePage() {
     });
   }
 
+  useEffect(() => {
+    let anyComplete = false;
+    for (const player of players) {
+      const prev = prevCrossedRef.current[player.id] ?? null;
+      const curr = player.crossed_cells as string[];
+      const who = player.id === me.id ? "You" : player.display_name;
+
+      if (prev !== null && curr.length > prev.length) {
+        for (const row of boardConfig.grid.rows) {
+          if (!isRowComplete(boardConfig, row, prev) && isRowComplete(boardConfig, row, curr)) {
+            toast.success(`🎉 ${who} completed row ${row}!`);
+            anyComplete = true;
+          }
+        }
+        for (const col of boardConfig.grid.columns) {
+          if (!isColumnComplete(boardConfig, col, prev) && isColumnComplete(boardConfig, col, curr)) {
+            toast.success(`🎉 ${who} completed column ${col}!`);
+            anyComplete = true;
+          }
+        }
+        for (const color of getBoardColors(boardConfig)) {
+          if (!isColorComplete(boardConfig, color, prev) && isColorComplete(boardConfig, color, curr)) {
+            toast.success(`🎉 ${who} completed all ${COLOR_NAMES[color]}!`);
+            anyComplete = true;
+          }
+        }
+      }
+
+      prevCrossedRef.current[player.id] = curr;
+    }
+    if (anyComplete) playCompletionSound();
+  }, [players]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
     return getValidCells(
@@ -239,6 +233,27 @@ export default function GamePage() {
     selectedCells,
   ]);
 
+  // True when selectedCells would newly complete a bomb-item row.
+  const willCompleteBombRow = useMemo(() => {
+    if (selectedCells.length === 0) return false;
+    const after = [...(effectiveMe.crossed_cells as string[]), ...selectedCells];
+    return boardConfig.grid.rows.some((row) => {
+      if (isRowComplete(boardConfig, row, effectiveMe.crossed_cells as string[])) return false;
+      if (!isRowComplete(boardConfig, row, after)) return false;
+      return (boardConfig.scoring.rowItems as Record<string, string>)[row] === "bomb";
+    });
+  }, [selectedCells, effectiveMe.crossed_cells, boardConfig]);
+
+  const playerMedals = useMemo<Record<string, string>>(() => {
+    if (room.status !== "finished") return {};
+    const sorted = [...players].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const result: Record<string, string> = {};
+    sorted.forEach((p, i) => {
+      if (MEDALS[i]) result[p.id] = MEDALS[i];
+    });
+    return result;
+  }, [room.status, players]);
+
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
 
@@ -257,6 +272,30 @@ export default function GamePage() {
 
   function handleCellClick(key: string) {
     if (!isMyBoard) return;
+    playCellClickSound();
+
+    // Row-bomb placement mode: main pick is ready and completed a bomb row.
+    // Direct further clicks to selecting the 2×2 bomb cells.
+    if (inRowBombMode) {
+      if (rowBombCells.includes(key)) {
+        setRowBombCells((p) => p.filter((k) => k !== key));
+        return;
+      }
+      if (rowBombCells.length >= 4) return;
+      const newSel = [...rowBombCells, key];
+      const idxs = newSel.map((k) => {
+        const [col, row] = k.split("-");
+        return [
+          boardConfig.grid.columns.indexOf(col),
+          boardConfig.grid.rows.indexOf(row),
+        ] as [number, number];
+      });
+      const cSpan = Math.max(...idxs.map(([c]) => c)) - Math.min(...idxs.map(([c]) => c));
+      const rSpan = Math.max(...idxs.map(([, r]) => r)) - Math.min(...idxs.map(([, r]) => r));
+      if (cSpan > 1 || rSpan > 1) return;
+      setRowBombCells(newSel);
+      return;
+    }
 
     if (selectedSpecial && dice) {
       if (dice.special === "heart") return;
@@ -361,8 +400,29 @@ export default function GamePage() {
   }
 
   useEffect(() => {
-    if (dice) setRolling(false);
-  }, [dice]);
+    if (room.status === "finished") setGameOverOpen(true);
+  }, [room.status]);
+
+  const prevPickCountRef = useRef(0);
+  useEffect(() => {
+    if (!currentHistory) return;
+    const count =
+      (currentHistory.active_pick ? 1 : 0) +
+      Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {}).length;
+    if (count > prevPickCountRef.current) playPickSound();
+    prevPickCountRef.current = count;
+  }, [currentHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const prevDiceNullRef = useRef(true);
+  useEffect(() => {
+    if (dice) {
+      setRolling(false);
+      if (prevDiceNullRef.current) playDiceRollSound();
+      prevDiceNullRef.current = false;
+    } else {
+      prevDiceNullRef.current = true;
+    }
+  }, [dice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleRoll() {
     setRolling(true);
@@ -389,6 +449,7 @@ export default function GamePage() {
     setSelectedNumber(undefined);
     setSelectedCells([]);
     setSelectedSpecial(false);
+    setRowBombCells([]);
   }
 
   async function handleSkipTurn() {
@@ -448,6 +509,7 @@ export default function GamePage() {
           declared_color: declaredColor,
           declared_number: declaredNumber,
           cells: selectedCells,
+          ...(rowBombCells.length > 0 && { bomb_cells: rowBombCells }),
           ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
         }),
       });
@@ -478,6 +540,7 @@ export default function GamePage() {
         body: JSON.stringify({
           type: "special",
           cells: selectedCells,
+          ...(rowBombCells.length > 0 && { bomb_cells: rowBombCells }),
           ...(DEV_MULTI_SEAT && { _dev_player_id: effectiveMe.id }),
         }),
       });
@@ -495,122 +558,123 @@ export default function GamePage() {
     }
   }
 
-  const canConfirm = useMemo(() => {
-    if (
-      !isMyBoard ||
-      selectedColor === undefined ||
-      selectedNumber === undefined
-    ) {
-      return false;
-    }
-    if (!dice) return false;
-
+  const mainPickReady = useMemo(() => {
+    if (!isMyBoard || selectedColor === undefined || selectedNumber === undefined || !dice) return false;
     const declaredNumberFace = dice.numbers[selectedNumber];
-    if (isNumberWildcard(declaredNumberFace)) {
-      return selectedCells.length > 0;
-    }
-
-    const required = parseInt(declaredNumberFace, 10);
-    return selectedCells.length === required;
+    if (isNumberWildcard(declaredNumberFace)) return selectedCells.length > 0;
+    return selectedCells.length === parseInt(declaredNumberFace, 10);
   }, [isMyBoard, selectedColor, selectedNumber, selectedCells, dice]);
 
-  const canConfirmSpecial = useMemo(() => {
+  const mainSpecialPickReady = useMemo(() => {
     if (!selectedSpecial || !dice) return false;
     switch (dice.special) {
-      case "heart":
-        return true;
-      case "fill":
-        return selectedCells.length > 0;
-      case "three_in_a_row":
-        return selectedCells.length >= 1 && selectedCells.length <= 3;
-      case "bomb":
-        return selectedCells.length === 4;
-      case "two_stars":
-        return selectedCells.length === 2;
-      default:
-        return false;
+      case "heart": return true;
+      case "fill": return selectedCells.length > 0;
+      case "three_in_a_row": return selectedCells.length >= 1 && selectedCells.length <= 3;
+      case "bomb": return selectedCells.length === 4;
+      case "two_stars": return selectedCells.length === 2;
+      default: return false;
     }
   }, [selectedSpecial, dice, selectedCells]);
 
-  const hintText = useMemo<string | null>(() => {
-    if (!isMyBoard || !dice) return null;
+  // Row bomb placement is required when the main pick is ready and completes a bomb row.
+  const inRowBombMode = (mainPickReady || mainSpecialPickReady) && willCompleteBombRow;
 
-    if (selectedSpecial) {
-      switch (dice.special) {
-        case "heart":
-          return "Spend 1 box — gain 1 heart";
-        case "fill":
-          return selectedCells.length > 0
-            ? "Region selected — click Confirm"
-            : "Click a cell to fill its connected color region";
-        case "three_in_a_row": {
-          const rem = 3 - selectedCells.length;
-          if (selectedCells.length === 0)
-            return "Pick 1–3 adjacent cells in the same row";
-          if (rem > 0)
-            return `Confirm, or pick ${rem} more cell${rem === 1 ? "" : "s"} in the row`;
-          return null;
-        }
-        case "bomb": {
-          const rem = 4 - selectedCells.length;
-          return rem > 0
-            ? `Pick ${rem} more cell${rem === 1 ? "" : "s"} to complete the 2×2`
-            : null;
-        }
-        case "two_stars": {
-          const rem = 2 - selectedCells.length;
-          return rem > 0
-            ? `Pick ${rem} more star cell${rem === 1 ? "" : "s"}`
-            : null;
+  const canConfirm = mainPickReady && (!willCompleteBombRow || rowBombCells.length === 4);
+  const canConfirmSpecial = mainSpecialPickReady && (!willCompleteBombRow || rowBombCells.length === 4);
+
+  // Valid cells for the row-bomb 2×2 placement step — mirrors getValidCells bomb logic.
+  const rowBombValidCells = useMemo<Set<string> | undefined>(() => {
+    if (!inRowBombMode) return undefined;
+    const crossedSet = new Set(effectiveMe.crossed_cells as string[]);
+    if (rowBombCells.length === 0) {
+      const result = new Set<string>();
+      for (const key of Object.keys(boardConfig.cells)) {
+        if (!crossedSet.has(key)) result.add(key);
+      }
+      return result;
+    }
+    if (rowBombCells.length >= 4) return new Set<string>();
+    const selIndices = rowBombCells.map((k) => {
+      const [col, row] = k.split("-");
+      return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
+    });
+    const minCol = Math.min(...selIndices.map(([c]) => c));
+    const maxCol = Math.max(...selIndices.map(([c]) => c));
+    const minRow = Math.min(...selIndices.map(([, r]) => r));
+    const maxRow = Math.max(...selIndices.map(([, r]) => r));
+    if (maxCol - minCol > 1 || maxRow - minRow > 1) return new Set<string>();
+    const result = new Set<string>();
+    const acMin = Math.max(0, maxCol - 1);
+    const acMax = Math.min(boardConfig.grid.columns.length - 2, minCol);
+    const arMin = Math.max(0, maxRow - 1);
+    const arMax = Math.min(boardConfig.grid.rows.length - 2, minRow);
+    for (let ac = acMin; ac <= acMax; ac++) {
+      for (let ar = arMin; ar <= arMax; ar++) {
+        const allFit = selIndices.every(([c, r]) => c >= ac && c <= ac + 1 && r >= ar && r <= ar + 1);
+        if (!allFit) continue;
+        for (let dc = 0; dc <= 1; dc++) {
+          for (let dr = 0; dr <= 1; dr++) {
+            const key = `${boardConfig.grid.columns[ac + dc]}-${boardConfig.grid.rows[ar + dr]}`;
+            if (!(key in boardConfig.cells)) continue;
+            if (crossedSet.has(key) || rowBombCells.includes(key)) continue;
+            result.add(key);
+          }
         }
       }
     }
+    return result;
+  }, [inRowBombMode, rowBombCells, boardConfig, effectiveMe.crossed_cells]);
 
-    if (selectedColor === undefined) return "Pick a color die";
-    if (selectedNumber === undefined) return "Pick a number die";
-
-    const declaredColorFace = dice.colors[selectedColor];
-    const declaredNumberFace = dice.numbers[selectedNumber];
-    const wildcardLockedColor =
-      isColorWildcard(declaredColorFace) && selectedCells.length > 0
-        ? boardConfig.cells[selectedCells[0]]?.color
-        : undefined;
-    const colorName = wildcardLockedColor
-      ? (COLOR_NAMES[wildcardLockedColor] ?? wildcardLockedColor)
-      : isColorWildcard(declaredColorFace)
-        ? "any color"
-        : (COLOR_NAMES[declaredColorFace] ?? declaredColorFace);
-
-    if (isNumberWildcard(declaredNumberFace)) {
-      return `Select ${colorName} squares, then confirm`;
-    }
-
-    const required = parseInt(declaredNumberFace, 10);
-    const remaining = required - selectedCells.length;
-    if (remaining === 0) return null;
-    return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
-  }, [
-    isMyBoard,
-    dice,
-    selectedSpecial,
-    selectedColor,
-    selectedNumber,
-    selectedCells,
-    boardConfig.cells,
-  ]);
+  const hintText = useMemo<string | null>(
+    () =>
+      computeHintText({
+        isMyBoard,
+        dice,
+        inRowBombMode,
+        rowBombCells,
+        selectedSpecial,
+        selectedColor,
+        selectedNumber,
+        selectedCells,
+        boardCells: boardConfig.cells,
+      }),
+    [
+      isMyBoard,
+      dice,
+      inRowBombMode,
+      rowBombCells,
+      selectedSpecial,
+      selectedColor,
+      selectedNumber,
+      selectedCells,
+      boardConfig.cells,
+    ],
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-black text-kok-orange tracking-wide uppercase">
+          <Link href="/" className="font-black text-kok-orange tracking-wide uppercase hover:opacity-75 transition-opacity">
             Keer op Keer 2
-          </span>
+          </Link>
           <span className="text-gray-300">|</span>
           <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">
             {room.code.toUpperCase()}
           </span>
+          {DEV_ADMIN_BOARD && (
+            <>
+              <span className="text-gray-300">|</span>
+              <Link
+                href={`/room/${room.code}/admin`}
+                className="text-xs font-semibold text-kok-orange hover:underline"
+              >
+                Admin
+              </Link>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-gray-500">
@@ -619,7 +683,7 @@ export default function GamePage() {
               {room.round_number + 1}
             </span>
           </span>
-          {allPicksSubmitted ? (
+          {allPicksSubmitted && room.status !== "finished" ? (
             <button
               onClick={handleAdvanceRound}
               disabled={advancing}
@@ -674,12 +738,7 @@ export default function GamePage() {
                     : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
                 }`}
               >
-                <Avatar
-                  name={p.display_name}
-                  variant="beam"
-                  size={20}
-                  colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
-                />
+                <PlayerAvatar name={p.display_name} seatIndex={p.seat_index} size={20} />
                 {p.display_name}
                 {p.id === me.id && " (you)"}
               </button>
@@ -694,9 +753,9 @@ export default function GamePage() {
                 <ScoreSheet
                   config={boardConfig}
                   crossedCells={viewing.crossed_cells}
-                  selectedCells={isMyBoard ? selectedCells : []}
+                  selectedCells={isMyBoard ? [...selectedCells, ...rowBombCells] : []}
                   onCellClick={isMyBoard ? handleCellClick : undefined}
-                  validCells={isMyBoard ? validCells : undefined}
+                  validCells={isMyBoard ? (inRowBombMode ? rowBombValidCells : validCells) : undefined}
                   myCompletedRows={myCompletedRows}
                   myCompletedCols={myCompletedCols}
                   firstTakenRows={firstTakenRows}
@@ -745,7 +804,7 @@ export default function GamePage() {
                 Players
               </div>
               <button
-                onClick={() => setScoresOpen(true)}
+                onClick={() => room.status === "finished" ? setGameOverOpen(true) : setScoresOpen(true)}
                 className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
               >
                 Show scores
@@ -777,14 +836,12 @@ export default function GamePage() {
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <Avatar
-                        name={p.display_name}
-                        variant="beam"
-                        size={24}
-                        colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
-                      />
+                      <PlayerAvatar name={p.display_name} seatIndex={p.seat_index} size={24} />
                       <div className="min-w-0">
                         <span className="font-medium text-gray-800 truncate block">
+                          {playerMedals[p.id] && (
+                            <span className="mr-1">{playerMedals[p.id]}</span>
+                          )}
                           {p.display_name}
                           {p.id === me.id && (
                             <span className="text-gray-400 text-xs font-normal">
@@ -992,6 +1049,12 @@ export default function GamePage() {
             </div>
           )}
         </aside>
+
+        <GameOverDialog
+          open={gameOverOpen}
+          onOpenChange={setGameOverOpen}
+          players={players}
+        />
 
         {/* History column — always mounted to preserve subscription */}
         <aside

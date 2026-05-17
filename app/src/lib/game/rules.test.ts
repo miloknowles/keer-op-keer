@@ -215,41 +215,82 @@ describe("validateColorNumberPick — basic", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("rejects non-contiguous cells even when each is adjacent to existing region", () => {
-    // Pink cells: A-P, B-P, F-P, G-P, G-Q, H-Q, M-Q, M-R, N-R, N-S, O-S, C-T, D-T, L-T, C-U, J-U, K-U, L-U, E-V, I-V
-    // G-P neighbors: F-P, H-P, G-Q
-    // G-Q neighbors: F-Q, H-Q, G-P, G-R
-    // F-P neighbors: E-P, G-P, F-Q
-    // H-Q neighbors: G-Q, I-Q, H-P, H-R
-    // F-P and H-Q are NOT adjacent to each other.
-    // If crossed = [G-P, G-Q], then F-P is adjacent to G-P, and H-Q is adjacent to G-Q.
-    // But F-P and H-Q are not adjacent to each other, so [F-P, H-Q] is not contiguous.
-    const pickNonContiguous: ColorNumberPick = {
+  it("accepts non-adjacent same-color cells bridged by a crossed cell", () => {
+    // Orange cells: E-Q, F-Q, F-R, G-R, H-R
+    // With F-Q already crossed, E-Q and F-R are connected through it even though they
+    // are not directly adjacent (they are diagonal).
+    const pick: ColorNumberPick = {
+      type: "color_number",
+      color_die: 2, // 'o' (orange)
+      number_die: 1, // '2'
+      declared_color: "o",
+      declared_number: 2,
+      cells: ["E-Q", "F-R"],
+    };
+    const player = makePlayer({ crossed_cells: ["F-Q"] });
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, null, true, 1);
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects cells that cannot be bridged through crossed cells", () => {
+    // F-P and H-Q are both pink. G-P (pink, crossed) is adjacent to F-P, and
+    // H-Q (crossed) is adjacent to I-Q. Both pass incremental adjacency, but there
+    // is no path from F-P to I-Q through the crossed pink cells [G-P].
+    // (G-P is not adjacent to H-Q, so the bridge chain is broken.)
+    const pick: ColorNumberPick = {
       type: "color_number",
       color_die: 1, // 'p' (pink)
       number_die: 1, // '2'
       declared_color: "p",
       declared_number: 2,
-      cells: ["F-P", "H-Q"], // pink; F-P adjacent to G-P, H-Q adjacent to G-Q, but F-P and H-Q not adjacent to each other
+      cells: ["F-P", "H-Q"], // both pink; crossed [G-P] does not bridge them to each other
     };
-    const playerNonContiguous = makePlayer({
-      crossed_cells: ["G-P", "G-Q"],
-    });
-    const resultNonContiguous = validateColorNumberPick(
-      config,
-      pickNonContiguous,
-      makeRoll(),
-      playerNonContiguous,
-      null,
-      false,
-      2,
-    );
-    // The incremental adjacency check will pass both F-P and H-Q individually.
-    // The contiguity check should catch that they are not in a single connected group.
-    expect(resultNonContiguous.valid).toBe(false);
-    expect(
-      (resultNonContiguous as { valid: false; error: string }).error,
-    ).toMatch(/contiguous/i);
+    // G-P is the only crossed pink cell; it is adjacent to F-P but not to H-Q.
+    // (G-P is col G row P; H-Q is col H row Q — diagonal, not orthogonally adjacent.)
+    const player = makePlayer({ crossed_cells: ["G-P"] });
+    const result = validateColorNumberPick(config, pick, makeRoll(), player, null, false, 2);
+    expect(result.valid).toBe(false);
+    expect((result as { valid: false; error: string }).error).toMatch(/contiguous/i);
+  });
+});
+
+describe("validateColorNumberPick — bomb row", () => {
+  it("requires bomb_cells when completing a bomb row (row Q)", () => {
+    // Cross all cells in row Q except the last one, then pick the last cell.
+    // Row Q has a "bomb" rowItem — completing it requires bomb_cells in the pick.
+    const rowQCells = config.grid.columns
+      .map((col) => `${col}-Q`)
+      .filter((key) => key in config.cells);
+    const lastCell = rowQCells[rowQCells.length - 1];
+    const crossedExceptLast = rowQCells.slice(0, -1);
+    const cellColor = config.cells[lastCell].color;
+
+    const roll: DiceRoll = {
+      colors: ["✕", "p", "o"],
+      numbers: ["1", "2", "3"],
+      special: "fill",
+    };
+    const pick: ColorNumberPick = {
+      type: "color_number",
+      color_die: 0, // wildcard — declare any color
+      number_die: 0, // "1"
+      declared_color: cellColor,
+      declared_number: 1,
+      cells: [lastCell],
+    };
+    const player = makePlayer({ crossed_cells: crossedExceptLast, wildcards: 6 });
+
+    const resultNoBomb = validateColorNumberPick(config, pick, roll, player, null, true, 1);
+    expect(resultNoBomb.valid).toBe(false);
+    expect((resultNoBomb as { valid: false; error: string }).error).toMatch(/bomb/i);
+
+    // With a valid 2×2 bomb_cells (rows R-S are not in crossedExceptLast)
+    const pickWithBomb: ColorNumberPick = {
+      ...pick,
+      bomb_cells: ["A-R", "B-R", "A-S", "B-S"],
+    };
+    const resultWithBomb = validateColorNumberPick(config, pickWithBomb, roll, player, null, true, 1);
+    expect(resultWithBomb.valid).toBe(true);
   });
 });
 

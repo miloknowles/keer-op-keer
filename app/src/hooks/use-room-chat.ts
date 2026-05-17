@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSound } from "react-sounds";
 import { createClient } from "@/lib/supabase/client";
 import type { RoomChatRow } from "@/types/game";
 
-export function useRoomChat(roomId: string, playerId: string) {
+export function useRoomChat(roomId: string, playerId: string, chatOpen: boolean) {
+  const { play: playMessageSound } = useSound("notification/popup", { volume: 0.5 });
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<RoomChatRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,7 @@ export function useRoomChat(roomId: string, playerId: string) {
           setMessages((prev) => [...prev, newMessage]);
           if (newMessage.player_id !== playerId) {
             setUnreadCount((prev) => prev + 1);
+            if (!chatOpen) playMessageSound();
           }
         },
       )
