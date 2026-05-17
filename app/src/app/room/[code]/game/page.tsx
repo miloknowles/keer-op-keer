@@ -46,6 +46,29 @@ import type {
   Color,
 } from "@/types/game";
 
+function NudgeBotButton({ roomCode, botName }: { roomCode: string; botName: string }) {
+  const [nudging, setNudging] = useState(false);
+  async function handleNudge() {
+    setNudging(true);
+    await fetch(`/api/rooms/${roomCode}/nudge-bot`, { method: "POST" });
+    setNudging(false);
+  }
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <p className="text-xs text-gray-400 italic">
+        Waiting for {botName} to roll…
+      </p>
+      <button
+        onClick={handleNudge}
+        disabled={nudging}
+        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 disabled:opacity-40 disabled:pointer-events-none transition-all"
+      >
+        {nudging ? "Nudging…" : "Nudge bot"}
+      </button>
+    </div>
+  );
+}
+
 export default function GamePage() {
   const { room, me, players, board } = useRoomContext();
   const boardConfig = board.config as unknown as BoardConfig;
@@ -81,6 +104,31 @@ export default function GamePage() {
       resetUnreadCount();
     }
   }, [chatOpen, resetUnreadCount]);
+
+  const roomStatusRef = useRef(room.status);
+  useEffect(() => { roomStatusRef.current = room.status; }, [room.status]);
+
+  const playersRef = useRef(players);
+  useEffect(() => { playersRef.current = players; }, [players]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "c") { e.preventDefault(); setChatOpen((prev) => !prev); }
+      else if (e.key === "h") { e.preventDefault(); setHistoryOpen((prev) => !prev); }
+      else if (e.key === "s") { e.preventDefault(); roomStatusRef.current === "finished" ? setGameOverOpen((prev) => !prev) : setScoresOpen((prev) => !prev); }
+      else {
+        const digit = parseInt(e.key, 10);
+        if (!isNaN(digit) && digit >= 1) {
+          const target = playersRef.current[digit - 1];
+          if (target) setViewingId(target.id);
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const { presences, updatePresence } = usePresence(room.id, {
     userId: me.id,
@@ -746,7 +794,7 @@ export default function GamePage() {
           </div>
 
           <div className="flex gap-4 items-start">
-            {/* Board + resource tracks */}
+            {/* Board */}
             <div className="flex flex-col gap-3 w-fit">
               {/* Score sheet */}
               <div className="bg-white rounded-xl shadow-sm p-4">
@@ -770,8 +818,17 @@ export default function GamePage() {
                   cellCursors={cellCursors}
                 />
               </div>
+            </div>
 
-              {/* Resource tracks for viewed player */}
+            {/* Right column: color bonuses + resource tracks */}
+            <div className="flex flex-col gap-3 shrink-0">
+              <div className="bg-white rounded-xl shadow-sm px-4 py-3">
+                <ColorBonuses
+                  config={boardConfig}
+                  viewingCrossedCells={viewing.crossed_cells}
+                  allPlayersCrossedCells={players.map((p) => p.crossed_cells)}
+                />
+              </div>
               <div className="bg-white rounded-xl shadow-sm px-4 py-3">
                 <ResourceTracks
                   hearts={viewing.hearts}
@@ -782,15 +839,6 @@ export default function GamePage() {
                   wildcardStart={scoring.wildcardTrack.starting}
                 />
               </div>
-            </div>
-
-            {/* Color bonuses panel */}
-            <div className="bg-white rounded-xl shadow-sm px-4 py-3 shrink-0">
-              <ColorBonuses
-                config={boardConfig}
-                viewingCrossedCells={viewing.crossed_cells}
-                allPlayersCrossedCells={players.map((p) => p.crossed_cells)}
-              />
             </div>
           </div>
         </main>
@@ -803,12 +851,20 @@ export default function GamePage() {
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 Players
               </div>
-              <button
-                onClick={() => room.status === "finished" ? setGameOverOpen(true) : setScoresOpen(true)}
-                className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
-              >
-                Show scores
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => room.status === "finished" ? setGameOverOpen(true) : setScoresOpen(true)}
+                  className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
+                >
+                  Scores
+                </button>
+                <button
+                  onClick={() => setHistoryOpen((prev) => !prev)}
+                  className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
+                >
+                  History
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               {players.map((p) => {
@@ -880,20 +936,6 @@ export default function GamePage() {
                 );
               })}
             </div>
-          </div>
-
-          {/* History toggle */}
-          <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              History
-            </div>
-            <button
-              onClick={() => setHistoryOpen((prev) => !prev)}
-              className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
-              aria-label={historyOpen ? "Close history" : "Open history"}
-            >
-              {historyOpen ? "Hide" : "Show"}
-            </button>
           </div>
 
           {/* Dice roll */}
@@ -982,6 +1024,8 @@ export default function GamePage() {
                   "Roll Dice"
                 )}
               </button>
+            ) : activePlayer?.is_bot ? (
+              <NudgeBotButton roomCode={room.code} botName={activePlayer.display_name} />
             ) : (
               <p className="text-xs text-gray-400 italic">
                 Waiting for {activePlayer?.display_name ?? "—"} to roll…
@@ -1076,6 +1120,7 @@ export default function GamePage() {
             playerId={me.id}
             players={players}
             onClose={() => setChatOpen(false)}
+            open={chatOpen}
           />
         </aside>
       </div>
