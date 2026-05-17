@@ -9,12 +9,10 @@ import type {
 import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
   getCell,
-  getAdjacentCells,
   isAdjacentToRegion,
   isValidPlacement,
   getConnectedRegion,
   areCellsContiguous,
-  getBoardColors,
 } from "./sheet";
 
 export type ValidationResult =
@@ -288,38 +286,6 @@ export function validateSpecialPick(
 
   return ok();
 }
-
-// Returns true if it's possible to place `n` contiguous cells of `color`
-// starting from the player's current region. Uses BFS from each candidate
-// starting cell to count reachable same-color uncrossed cells.
-function hasLegalColorNumberMove(
-  config: BoardConfig,
-  color: string,
-  n: number,
-  crossed: string[],
-): boolean {
-  const crossedSet = new Set(crossed);
-  for (const key of Object.keys(config.cells)) {
-    const cell = config.cells[key];
-    if (cell.color !== color || crossedSet.has(key)) continue;
-    if (!isValidPlacement(config, key, crossed)) continue;
-    // BFS through adjacent same-color uncrossed cells from this starting cell
-    const visited = new Set([key]);
-    const queue = [key];
-    while (queue.length > 0 && visited.size < n) {
-      const cur = queue.shift()!;
-      for (const nb of getAdjacentCells(config, cur)) {
-        if (visited.has(nb) || crossedSet.has(nb)) continue;
-        if (config.cells[nb]?.color !== color) continue;
-        visited.add(nb);
-        queue.push(nb);
-      }
-    }
-    if (visited.size >= n) return true;
-  }
-  return false;
-}
-
 
 // Returns the set of cells the player can legally click given the current
 // dice roll and selection state. Returns undefined when no guidance applies
