@@ -32,10 +32,6 @@ If a player navigates away or refreshes and then tries to re-enter their room co
 - In the `/join` API route, detect that the caller is already a member of the room and redirect them rather than returning an error
 - On the homepage join form, check the user's existing room memberships first and route them directly if a match is found
 
-**Fix options:**
-- Enforce a hard cap of 6 players in the `/join` API route and surface a clear error message
-- Test and validate the full game flow with 7+ players if higher limits are desired
-
 ## Special items can be used out of turn
 
 Any player can activate a special item (e.g. Bomb) at any time, even before the first player has submitted their move for the round. There is no enforcement that special item usage is gated to the active player or to a valid phase of the turn.
@@ -43,14 +39,6 @@ Any player can activate a special item (e.g. Bomb) at any time, even before the 
 **Fix options:**
 - Gate special item activation in the client UI so it is only enabled when it is the current player's turn to move
 - Validate on the server (in the move API route) that the submitting player has not already acted this round and that the round is in the correct state
-
-## Center column (H) lacks visual distinction
-
-The H column is the starting column where all players must place their first cell, but it looks identical to every other column on the board. It should have a distinct background color or styling to signal its special role.
-
-**Fix options:**
-- Apply a subtle tinted background to H-column cells in the board renderer
-- Add a label or indicator above the column to mark it as the start column
 
 ## Game ending is untested
 

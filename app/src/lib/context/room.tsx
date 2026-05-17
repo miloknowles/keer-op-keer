@@ -110,8 +110,6 @@ export function RoomProvider({
           setRoom(updated);
           if (updated.status === "in_progress") {
             router.replace(`/room/${code}/game`);
-          } else if (updated.status === "finished") {
-            router.replace(`/room/${code}/finished`);
           }
         },
       )

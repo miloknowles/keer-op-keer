@@ -16,6 +16,5 @@ export default async function RoomPage(props: {
   if (!room) notFound();
 
   if (room.status === "lobby") redirect(`/room/${code}/lobby`);
-  if (room.status === "in_progress") redirect(`/room/${code}/game`);
-  redirect(`/room/${code}/finished`);
+  redirect(`/room/${code}/game`);
 }

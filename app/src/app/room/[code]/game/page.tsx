@@ -18,6 +18,7 @@ import { ColorBonuses } from "@/components/game/ColorBonuses";
 import { ChatWindow } from "@/components/game/ChatWindow";
 import { HistoryPanel } from "@/components/game/HistoryPanel";
 import { ScoreDialog } from "@/components/game/ScoreDialog";
+import { GameOverDialog } from "@/components/game/GameOverDialog";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
@@ -73,6 +74,7 @@ export default function GamePage() {
   const [skipConfirming, setSkipConfirming] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [scoresOpen, setScoresOpen] = useState(false);
+  const [gameOverOpen, setGameOverOpen] = useState(room.status === "finished");
   const [rowBombCells, setRowBombCells] = useState<string[]>([]);
 
   const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
@@ -252,6 +254,17 @@ export default function GamePage() {
     });
   }, [selectedCells, effectiveMe.crossed_cells, boardConfig]);
 
+  const MEDALS = ["🥇", "🥈", "🥉"];
+  const playerMedals = useMemo<Record<string, string>>(() => {
+    if (room.status !== "finished") return {};
+    const sorted = [...players].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const result: Record<string, string> = {};
+    sorted.forEach((p, i) => {
+      if (MEDALS[i]) result[p.id] = MEDALS[i];
+    });
+    return result;
+  }, [room.status, players]);
+
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
 
@@ -395,6 +408,10 @@ export default function GamePage() {
       return !prev;
     });
   }
+
+  useEffect(() => {
+    if (room.status === "finished") setGameOverOpen(true);
+  }, [room.status]);
 
   useEffect(() => {
     if (dice) setRolling(false);
@@ -834,7 +851,7 @@ export default function GamePage() {
                 Players
               </div>
               <button
-                onClick={() => setScoresOpen(true)}
+                onClick={() => room.status === "finished" ? setGameOverOpen(true) : setScoresOpen(true)}
                 className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
               >
                 Show scores
@@ -874,6 +891,9 @@ export default function GamePage() {
                       />
                       <div className="min-w-0">
                         <span className="font-medium text-gray-800 truncate block">
+                          {playerMedals[p.id] && (
+                            <span className="mr-1">{playerMedals[p.id]}</span>
+                          )}
                           {p.display_name}
                           {p.id === me.id && (
                             <span className="text-gray-400 text-xs font-normal">
@@ -1081,6 +1101,12 @@ export default function GamePage() {
             </div>
           )}
         </aside>
+
+        <GameOverDialog
+          open={gameOverOpen}
+          onOpenChange={setGameOverOpen}
+          players={players}
+        />
 
         {/* History column — always mounted to preserve subscription */}
         <aside

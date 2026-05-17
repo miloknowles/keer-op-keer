@@ -108,9 +108,21 @@ export default function AdminPage() {
         </div>
         <Link
           href={`/room/${room.code}/game`}
-          className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
-          ← Back to game
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 7H2M6 3l-4 4 4 4" />
+          </svg>
+          Back to game
         </Link>
       </header>
 
