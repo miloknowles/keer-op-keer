@@ -7,3 +7,34 @@ Room codes are 4 random uppercase letters (e.g. `XKQZ`), giving 26⁴ = 456,976 
 **Fix options:**
 - Periodically expire and free codes from finished/abandoned rooms
 - Expand to 5-letter codes (26⁵ ≈ 11.8M) or add digits (36⁴ ≈ 1.7M)
+
+## No automated CI testing
+
+There is no GitHub Actions workflow to run the test suite on pull requests or pushes. Tests must be run manually (`npm test` from `app/`).
+
+**Fix options:**
+- Add a `.github/workflows/ci.yml` that runs `npm ci && npm test` in the `app/` directory on push/PR
+- Optionally add type-checking (`npm run type-check`) and linting (`npm run lint`) as separate steps
+
+## Auto-advance is unreliable
+
+When all players have submitted their moves, the game should automatically advance to the next round, but this does not always trigger correctly. Players may be stuck waiting on a round that has already been completed by everyone.
+
+**Fix options:**
+- Audit the realtime subscription logic that listens for all-players-submitted and ensure it fires consistently
+- Add a fallback server-side check (e.g. on each move submission, verify if all players are done and force-advance if so)
+
+## Logo does not link to home
+
+Clicking "Keer op Keer 2" in the top-left header should navigate back to the main page (`/`), but currently does nothing.
+
+**Fix options:**
+- Wrap the logo/title in a Next.js `<Link href="/">` component
+
+## Game ending is untested
+
+The end-of-game flow (triggering game over, computing final scores, displaying results) has no automated test coverage.
+
+**Fix options:**
+- Add integration tests that simulate a full game through to completion and assert the correct winner and scores
+- Add unit tests for the specific conditions that trigger game end (e.g. all columns filled, time expiry)

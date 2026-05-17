@@ -85,6 +85,19 @@ export function isAdjacentToRegion(
   return getAdjacentCells(config, key).some((k) => crossedSet.has(k));
 }
 
+// Returns true if the cell is in a start column or orthogonally adjacent to one.
+// Used by the fill special die — a region may start from any cell touching column H.
+export function isAdjacentToStartZone(
+  config: BoardConfig,
+  key: CellKey,
+): boolean {
+  const [col] = key.split("-");
+  if (config.grid.startColumns.includes(col)) return true;
+  return getAdjacentCells(config, key).some((adjKey) =>
+    config.grid.startColumns.includes(adjKey.split("-")[0]),
+  );
+}
+
 // Returns true if the cell is a valid placement target.
 // startColumns (column H) are always valid regardless of the existing region.
 // All other cells require orthogonal adjacency to the existing crossed region.

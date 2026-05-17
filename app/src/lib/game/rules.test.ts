@@ -460,9 +460,9 @@ describe("validateSpecialPick — fill", () => {
     );
   });
 
-  it("rejects fill with no adjacency to existing region", () => {
+  it("rejects fill with no adjacency to existing region or column H", () => {
     const player = makePlayer({ crossed_cells: ["H-P"] });
-    // A-Q and A-R are blue and form a complete connected region — not in column H, not adjacent to H-P
+    // A-Q and A-R are blue and form a complete connected region — not in/adjacent to column H, not adjacent to H-P
     const pick: SpecialPick = {
       type: "special",
       cells: ["A-Q", "A-R"],
