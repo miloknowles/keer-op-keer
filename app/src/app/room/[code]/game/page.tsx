@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Avatar from "boring-avatars";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import {
   isRowComplete,
   isColumnComplete,
@@ -12,7 +12,8 @@ import {
 } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import { getValidCells } from "@/lib/game/rules";
-import { SEAT_COLORS, COLOR_NAMES } from "@/lib/constants";
+import { computeHintText } from "@/lib/game/hint";
+import { COLOR_NAMES, MEDALS, SEAT_TO_COLOR } from "@/lib/constants";
 import { ScoreSheet } from "@/components/game/ScoreSheet";
 import { GameDice } from "@/components/game/GameDice";
 import { ResourceTracks } from "@/components/game/ResourceTracks";
@@ -22,9 +23,9 @@ import { HistoryPanel } from "@/components/game/HistoryPanel";
 import { ScoreDialog } from "@/components/game/ScoreDialog";
 import { GameOverDialog } from "@/components/game/GameOverDialog";
 import { useRoomContext } from "@/lib/context/room";
-import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
 import { useRoomChat } from "@/hooks/use-room-chat";
+import { useGameHistory } from "@/hooks/use-game-history";
 import { DEV_MULTI_SEAT, DEV_ADMIN_BOARD } from "@/lib/devFlags";
 import { toast } from "sonner";
 import {
@@ -41,29 +42,16 @@ import type {
   DiceColorFace,
   DiceNumberFace,
   BoardConfig,
-  RoomHistoryRow,
   Color,
 } from "@/types/game";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
-
-const SEAT_TO_COLOR: Record<number, Color> = {
-  0: "p",
-  1: "b",
-  2: "y",
-  3: "g",
-  4: "o",
-};
 
 export default function GamePage() {
   const { room, me, players, board } = useRoomContext();
   const boardConfig = board.config as unknown as BoardConfig;
 
-  const supabase = useRef(createClient()).current;
   const prevCrossedRef = useRef<string[] | null>(null);
-  const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(
-    null,
-  );
+  const currentHistory = useGameHistory(room.id, room.round_number);
 
   const [viewingId, setViewingId] = useState(me.id);
   const [chatOpen, setChatOpen] = useState(false);
@@ -96,50 +84,6 @@ export default function GamePage() {
     color: SEAT_TO_COLOR[me.seat_index] ?? "p",
     cursor: { cellKey: hoveredCell, boardOwnerId: viewingId },
   });
-
-  useEffect(() => {
-    supabase
-      .from("room_history")
-      .select("*")
-      .eq("room_id", room.id)
-      .eq("round_number", room.round_number)
-      .maybeSingle()
-      .then(({ data }) => setCurrentHistory(data ?? null));
-
-    const channel = supabase
-      .channel(`history:${room.id}:${room.round_number}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "room_history",
-          filter: `room_id=eq.${room.id}`,
-        },
-        (payload) => {
-          const row = payload.new as RoomHistoryRow;
-          if (row.round_number === room.round_number) setCurrentHistory(row);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "room_history",
-          filter: `room_id=eq.${room.id}`,
-        },
-        (payload) => {
-          const row = payload.new as RoomHistoryRow;
-          if (row.round_number === room.round_number) setCurrentHistory(row);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [room.id, room.round_number]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     updatePresence({
@@ -652,80 +596,31 @@ export default function GamePage() {
     return result;
   }, [inRowBombMode, rowBombCells, boardConfig, effectiveMe.crossed_cells]);
 
-  const hintText = useMemo<string | null>(() => {
-    if (!isMyBoard || !dice) return null;
-
-    if (inRowBombMode) {
-      const rem = 4 - rowBombCells.length;
-      if (rem > 0) return `Row completed! Now place your bomb — pick ${rem} more cell${rem === 1 ? "" : "s"} to form a 2×2`;
-      return null;
-    }
-
-    if (selectedSpecial) {
-      switch (dice.special) {
-        case "heart":
-          return "Spend 1 box — gain 1 heart";
-        case "fill":
-          return selectedCells.length > 0
-            ? "Region selected — click Confirm"
-            : "Click a cell to fill its connected color region";
-        case "three_in_a_row": {
-          const rem = 3 - selectedCells.length;
-          if (selectedCells.length === 0)
-            return "Pick 1–3 adjacent cells in the same row";
-          if (rem > 0)
-            return `Confirm, or pick ${rem} more cell${rem === 1 ? "" : "s"} in the row`;
-          return null;
-        }
-        case "bomb": {
-          const rem = 4 - selectedCells.length;
-          return rem > 0
-            ? `Pick ${rem} more cell${rem === 1 ? "" : "s"} to complete the 2×2`
-            : null;
-        }
-        case "two_stars": {
-          const rem = 2 - selectedCells.length;
-          return rem > 0
-            ? `Pick ${rem} more star cell${rem === 1 ? "" : "s"}`
-            : null;
-        }
-      }
-    }
-
-    if (selectedColor === undefined) return "Pick a color die";
-    if (selectedNumber === undefined) return "Pick a number die";
-
-    const declaredColorFace = dice.colors[selectedColor];
-    const declaredNumberFace = dice.numbers[selectedNumber];
-    const wildcardLockedColor =
-      isColorWildcard(declaredColorFace) && selectedCells.length > 0
-        ? boardConfig.cells[selectedCells[0]]?.color
-        : undefined;
-    const colorName = wildcardLockedColor
-      ? (COLOR_NAMES[wildcardLockedColor] ?? wildcardLockedColor)
-      : isColorWildcard(declaredColorFace)
-        ? "any color"
-        : (COLOR_NAMES[declaredColorFace] ?? declaredColorFace);
-
-    if (isNumberWildcard(declaredNumberFace)) {
-      return `Select ${colorName} squares, then confirm`;
-    }
-
-    const required = parseInt(declaredNumberFace, 10);
-    const remaining = required - selectedCells.length;
-    if (remaining === 0) return null;
-    return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
-  }, [
-    isMyBoard,
-    dice,
-    inRowBombMode,
-    rowBombCells,
-    selectedSpecial,
-    selectedColor,
-    selectedNumber,
-    selectedCells,
-    boardConfig.cells,
-  ]);
+  const hintText = useMemo<string | null>(
+    () =>
+      computeHintText({
+        isMyBoard,
+        dice,
+        inRowBombMode,
+        rowBombCells,
+        selectedSpecial,
+        selectedColor,
+        selectedNumber,
+        selectedCells,
+        boardCells: boardConfig.cells,
+      }),
+    [
+      isMyBoard,
+      dice,
+      inRowBombMode,
+      rowBombCells,
+      selectedSpecial,
+      selectedColor,
+      selectedNumber,
+      selectedCells,
+      boardConfig.cells,
+    ],
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -813,12 +708,7 @@ export default function GamePage() {
                     : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
                 }`}
               >
-                <Avatar
-                  name={p.display_name}
-                  variant="beam"
-                  size={20}
-                  colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
-                />
+                <PlayerAvatar name={p.display_name} seatIndex={p.seat_index} size={20} />
                 {p.display_name}
                 {p.id === me.id && " (you)"}
               </button>
@@ -916,12 +806,7 @@ export default function GamePage() {
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <Avatar
-                        name={p.display_name}
-                        variant="beam"
-                        size={24}
-                        colors={SEAT_COLORS[p.seat_index % SEAT_COLORS.length]}
-                      />
+                      <PlayerAvatar name={p.display_name} seatIndex={p.seat_index} size={24} />
                       <div className="min-w-0">
                         <span className="font-medium text-gray-800 truncate block">
                           {playerMedals[p.id] && (

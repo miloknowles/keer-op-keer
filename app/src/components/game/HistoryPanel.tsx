@@ -8,22 +8,7 @@ import type {
   GamePick,
   ColorNumberPick,
 } from "@/types/game";
-
-const COLOR_DISPLAY: Record<string, string> = {
-  p: "Pink",
-  o: "Orange",
-  y: "Yellow",
-  g: "Green",
-  b: "Blue",
-};
-
-const SPECIAL_DISPLAY: Record<string, string> = {
-  heart: "Heart",
-  fill: "Fill",
-  three_in_a_row: "Three in a Row",
-  bomb: "Bomb",
-  two_stars: "Two Stars",
-};
+import { COLOR_DISPLAY, SPECIAL_DISPLAY } from "@/lib/display";
 
 interface Props {
   roomId: string;

@@ -23,3 +23,21 @@ export const COLOR_BG: Record<Color, string> = {
   g: "bg-kok-green",
   b: "bg-kok-blue",
 };
+
+export const MEDALS = ["🥇", "🥈", "🥉"];
+
+export const SEAT_TO_COLOR: Record<number, Color> = {
+  0: "p",
+  1: "b",
+  2: "y",
+  3: "g",
+  4: "o",
+};
+
+export const MAX_PLAYERS = 6;
+
+export const PRESENCE_THROTTLE_MS = 150;
+
+export const MOBILE_BREAKPOINT = 768;
+
+export const DESKTOP_BREAKPOINT = 1024;

@@ -116,6 +116,26 @@ export function isValidPlacement(
   return isAdjacentToRegion(config, key, crossed);
 }
 
+function bfsFromKey(
+  start: CellKey,
+  config: BoardConfig,
+  shouldVisit: (key: CellKey) => boolean,
+): Set<CellKey> {
+  const visited = new Set<CellKey>([start]);
+  const queue: CellKey[] = [start];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of getAdjacentCells(config, current)) {
+      if (visited.has(neighbor)) continue;
+      if (shouldVisit(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+  return visited;
+}
+
 // BFS flood-fill: all cells of `color` reachable from `startKey` that are NOT already crossed.
 export function getConnectedRegion(
   config: BoardConfig,
@@ -128,45 +148,21 @@ export function getConnectedRegion(
   if (!startCell || startCell.color !== color || crossedSet.has(startKey))
     return [];
 
-  const visited = new Set<CellKey>();
-  const queue: CellKey[] = [startKey];
-  visited.add(startKey);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const neighbor of getAdjacentCells(config, current)) {
-      if (visited.has(neighbor)) continue;
-      if (crossedSet.has(neighbor)) continue;
-      const cell = config.cells[neighbor];
-      if (!cell || cell.color !== color) continue;
-      visited.add(neighbor);
-      queue.push(neighbor);
-    }
-  }
-
-  return Array.from(visited);
+  return Array.from(
+    bfsFromKey(startKey, config, (key) => {
+      if (crossedSet.has(key)) return false;
+      const cell = config.cells[key];
+      return !!cell && cell.color === color;
+    }),
+  );
 }
 
 // Check if a set of cells form a single contiguous group (connected component).
 // Only considers adjacency within the provided cells, not the full board.
 export function areCellsContiguous(config: BoardConfig, cells: CellKey[]): boolean {
   if (cells.length <= 1) return true;
-
   const cellSet = new Set(cells);
-  const visited = new Set<CellKey>();
-  const queue: CellKey[] = [cells[0]];
-  visited.add(cells[0]);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const neighbor of getAdjacentCells(config, current)) {
-      if (cellSet.has(neighbor) && !visited.has(neighbor)) {
-        visited.add(neighbor);
-        queue.push(neighbor);
-      }
-    }
-  }
-
+  const visited = bfsFromKey(cells[0], config, (key) => cellSet.has(key));
   return visited.size === cells.length;
 }
 
@@ -184,23 +180,9 @@ export function areCellsContiguousWithBridge(
   const color = config.cells[cells[0]]?.color;
   if (!color) return false;
 
-  const visited = new Set<CellKey>();
-  const queue: CellKey[] = [cells[0]];
-  visited.add(cells[0]);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const neighbor of getAdjacentCells(config, current)) {
-      if (visited.has(neighbor)) continue;
-      const isTarget = targetSet.has(neighbor);
-      const isBridge = crossedSet.has(neighbor) && config.cells[neighbor]?.color === color;
-      if (isTarget || isBridge) {
-        visited.add(neighbor);
-        queue.push(neighbor);
-      }
-    }
-  }
-
+  const visited = bfsFromKey(cells[0], config, (key) => {
+    return targetSet.has(key) || (crossedSet.has(key) && config.cells[key]?.color === color);
+  });
   return cells.every((k) => visited.has(k));
 }
 

@@ -2,15 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Avatar from "boring-avatars";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
-import { SEAT_COLORS } from "@/lib/constants";
+import { MAX_PLAYERS } from "@/lib/constants";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SettingsDialog } from "./settings-dialog";
-
-const MAX_PLAYERS = 6;
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -133,12 +131,7 @@ export default function LobbyPage() {
                 className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm"
               >
                 <div className="shrink-0 rounded-full overflow-hidden shadow-sm">
-                  <Avatar
-                    name={player.display_name}
-                    variant="beam"
-                    size={36}
-                    colors={SEAT_COLORS[player.seat_index % SEAT_COLORS.length]}
-                  />
+                  <PlayerAvatar name={player.display_name} seatIndex={player.seat_index} size={36} />
                 </div>
 
                 {isMe && editingId === player.id ? (

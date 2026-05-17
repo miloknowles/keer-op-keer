@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MonitorIcon } from "lucide-react";
-
-const DESKTOP_BREAKPOINT = 1024;
+import { DESKTOP_BREAKPOINT } from "@/lib/constants";
 
 export function MobileGuard() {
   const [isTooSmall, setIsTooSmall] = useState<boolean | undefined>(undefined);

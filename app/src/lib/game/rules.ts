@@ -5,6 +5,7 @@ import type {
   GamePick,
   DiceRoll,
   RoomPlayerRow,
+  ValidationResult,
 } from "../../types/game";
 import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
@@ -17,9 +18,14 @@ import {
   areCellsContiguousWithBridge,
 } from "./sheet";
 
-export type ValidationResult =
-  | { valid: true }
-  | { valid: false; error: string };
+const ROUND_FOR_SPECIAL_ORDERING = 3;
+const BOMB_CELL_COUNT = 4;
+const TWO_STARS_CELL_COUNT = 2;
+const THREE_IN_A_ROW_MIN = 1;
+const THREE_IN_A_ROW_MAX = 3;
+const VALID_NUMBER_MIN = 1;
+const VALID_NUMBER_MAX = 5;
+
 
 function newlyCompletedBombRows(
   config: BoardConfig,
@@ -44,7 +50,7 @@ export function validateBombCells(
   config: BoardConfig,
   cells: string[],
 ): ValidationResult {
-  if (cells.length !== 4) return fail("bomb requires exactly 4 cells");
+  if (cells.length !== BOMB_CELL_COUNT) return fail("bomb requires exactly 4 cells");
   for (const key of cells) {
     if (!getCell(config, key))
       return fail(`cell ${key} does not exist on board`);
@@ -90,7 +96,7 @@ export function validateColorNumberPick(
   if (![0, 1, 2].includes(number_die)) return fail("invalid number_die index");
 
   // In rounds 3+, non-active players cannot use the dice the active player used
-  if (round >= 3 && !isActivePlayer) {
+  if (round >= ROUND_FOR_SPECIAL_ORDERING && !isActivePlayer) {
     if (activePick === null) return fail("active player has not yet picked");
     if (activePick.type === "color_number") {
       if (color_die === activePick.color_die)
@@ -116,7 +122,7 @@ export function validateColorNumberPick(
   }
 
   // Declared number is valid
-  if (declared_number < 1 || declared_number > 5)
+  if (declared_number < VALID_NUMBER_MIN || declared_number > VALID_NUMBER_MAX)
     return fail("declared_number must be 1–5");
   if (!numberIsWild && numberFace !== String(declared_number)) {
     return fail(
@@ -189,7 +195,7 @@ export function validateSpecialPick(
 
   // In rounds 3+, non-active players must wait for the active player to pick,
   // then cannot use the special if the active player already claimed it.
-  if (round >= 3 && !isActivePlayer) {
+  if (round >= ROUND_FOR_SPECIAL_ORDERING && !isActivePlayer) {
     if (activePick === null) return fail("active player has not yet picked");
     if (activePick.type === "special")
       return fail("special die already used by active player");
@@ -251,7 +257,7 @@ export function validateSpecialPick(
     }
 
     case "three_in_a_row": {
-      if (cells.length < 1 || cells.length > 3)
+      if (cells.length < THREE_IN_A_ROW_MIN || cells.length > THREE_IN_A_ROW_MAX)
         return fail("three_in_a_row requires 1–3 cells");
       const rows = cells.map((k) => k.split("-")[1]);
       if (new Set(rows).size !== 1)
@@ -272,7 +278,7 @@ export function validateSpecialPick(
     }
 
     case "bomb": {
-      if (cells.length !== 4) return fail("bomb requires exactly 4 cells");
+      if (cells.length !== BOMB_CELL_COUNT) return fail("bomb requires exactly 4 cells");
       for (const key of cells) {
         if (crossedSet.has(key)) return fail(`cell ${key} is already crossed`);
       }
@@ -282,7 +288,7 @@ export function validateSpecialPick(
     }
 
     case "two_stars": {
-      if (cells.length !== 2) return fail("two_stars requires exactly 2 cells");
+      if (cells.length !== TWO_STARS_CELL_COUNT) return fail("two_stars requires exactly 2 cells");
       const buildingCrossed = [...player.crossed_cells];
       for (const key of cells) {
         const cell = getCell(config, key);

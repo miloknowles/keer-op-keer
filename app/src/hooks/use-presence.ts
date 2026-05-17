@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PlayerPresence } from "@/types/presence";
+import { PRESENCE_THROTTLE_MS } from "@/lib/constants";
 
 export function usePresence(roomId: string, myPresence: PlayerPresence) {
   const [presences, setPresences] = useState<Record<string, PlayerPresence>>({});
@@ -58,7 +59,7 @@ export function usePresence(roomId: string, myPresence: PlayerPresence) {
         channelRef.current.track(merged);
       }
       pendingUpdateRef.current = null;
-    }, 150);
+    }, PRESENCE_THROTTLE_MS);
   };
 
   return { presences, updatePresence };

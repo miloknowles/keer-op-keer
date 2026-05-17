@@ -2,15 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { COLOR_BG } from "@/lib/constants";
-import type { BoardConfig, Color } from "@/types/game";
-
-// JSON stores specials as flat booleans; types use special?: "star"|"box"
-type RawCell = {
-  color: Color;
-  star?: boolean;
-  box?: boolean;
-  special?: string;
-};
+import type { BoardConfig, Color, RawCell } from "@/types/game";
 
 interface ScoreSheetProps {
   config: BoardConfig;

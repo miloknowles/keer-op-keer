@@ -76,7 +76,7 @@ describe("computeScore — column bonus", () => {
 });
 
 describe("computeScore — row bonus", () => {
-  it("awards row bonus only to first completer", () => {
+  it("awards row bonus to all completers", () => {
     const rowPCells = config.grid.columns
       .map((col) => `${col}-P`)
       .filter((key) => key in config.cells);
@@ -94,7 +94,7 @@ describe("computeScore — row bonus", () => {
     const score2 = computeScore(config, player2, allPlayers);
 
     expect(score1.rows["P"]).toBe(5); // rowBonuses.P = 5
-    expect(score2.rows["P"]).toBeUndefined(); // subsequent gets nothing
+    expect(score2.rows["P"]).toBe(5); // subsequent also earns 5 (no item)
   });
 });
 
