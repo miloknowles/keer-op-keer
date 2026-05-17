@@ -107,11 +107,11 @@ Each round, one player is the **active player**. Turns rotate clockwise.
 2. **Active player chooses exactly one of:**
    - **Color + number** — pick 1 color die and 1 number die, cross off **exactly** that many cells of that color (adjacency rule applies). All selected cells must form a **single contiguous group** — you cannot split the selection across multiple separate regions. The player **must** select the full count — they cannot select fewer, and no more cells become available once the count is reached. Either or both dice may be wildcards, costing 1 wildcard slot each. If a player cannot find enough adjacent cells of the declared color in a single contiguous group, they cannot make this move and must either use a special power (if they have boxes) or pass.
    - **Special die** — spend 1 box to use the special die result instead.
-   - **Pass** — take no action (only valid if no legal color+number move exists and the player has no box to spend, or the special die has already been claimed).
+   - **Pass** — take no action. Players may always pass, regardless of whether a legal move exists.
 3. **All other players** each independently choose one of:
    - **Color + number** — pick 1 color die and 1 number die from the remaining pool (same wildcard rules apply).
    - **Special die** — spend 1 box to use the special die result, **as long as the active player did not already use the special die this round**. Multiple non-active players may each independently use the special die in the same round.
-   - **Pass** — take no action (only valid if no legal color+number move exists and no usable special die option remains).
+   - **Pass** — take no action. Players may always pass, regardless of whether a legal move exists.
    Non-active players are not competing with each other — each independently reads from the same remaining pool.
 4. Play passes to the next active player.
 

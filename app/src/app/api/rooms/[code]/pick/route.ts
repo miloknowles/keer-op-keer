@@ -4,7 +4,6 @@ import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 import {
   validateColorNumberPick,
   validateSpecialPick,
-  canPass,
 } from "@/lib/game/rules";
 import { colorsCompleted } from "@/lib/game/sheet";
 import { computePickResult } from "@/lib/game/effects";
@@ -152,19 +151,7 @@ export async function POST(
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (pick.type === "pass") {
-    const canPassNow = canPass(
-      config,
-      roll,
-      playerRow,
-      activePick,
-      isActivePlayer,
-      room.round_number,
-    );
-    if (!canPassNow)
-      return NextResponse.json(
-        { error: "Cannot pass — a legal move exists" },
-        { status: 400 },
-      );
+    // Players may always pass — no legal-move check enforced.
   } else {
     return NextResponse.json({ error: "Unknown pick type" }, { status: 400 });
   }
@@ -262,13 +249,17 @@ export async function POST(
           console.error("[pick] write score failed:", scoreErr);
         }
       }
-      await supabase
+      const { error: finishErr } = await supabase
         .from("rooms")
         .update({
           status: "finished",
           finished_at: new Date().toISOString(),
         })
         .eq("id", room.id);
+      if (finishErr) {
+        console.error("[pick] finish game failed:", finishErr);
+        return NextResponse.json({ error: finishErr.message }, { status: 500 });
+      }
     } else {
       // ── 15. Advance to next round ───────────────────────────────────────
       const { error: roomErr } = await supabase
@@ -278,7 +269,8 @@ export async function POST(
           current_player_index:
             (room.current_player_index + 1) % (totalPlayers ?? 1),
         })
-        .eq("id", room.id);
+        .eq("id", room.id)
+        .eq("round_number", room.round_number);
       if (roomErr) {
         console.error("[pick] advance round failed:", roomErr);
         return NextResponse.json(

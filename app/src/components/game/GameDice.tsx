@@ -18,10 +18,28 @@ const PIPS: Record<string, boolean[]> = {
   "5": [T, F, T, F, T, F, T, F, T],
 };
 
-const SPECIAL_LABEL: Record<DiceSpecialFace, string> = {
+const SPECIAL_LABEL: Record<DiceSpecialFace, React.ReactNode> = {
   heart: "❤️",
-  fill: "≋",
-  three_in_a_row: "|||",
+  fill: (
+    <span className="flex flex-col gap-0.5">
+      <span className="flex gap-0.5">
+        <span className="inline-block w-2 h-2 border-2 border-current rounded-sm" />
+        <span className="inline-block w-2 h-2 border-2 border-current rounded-sm" />
+        <span className="inline-block w-2 h-2 border-2 border-current rounded-sm" />
+      </span>
+      <span className="flex gap-0.5">
+        <span className="inline-block w-2 h-2 border-2 border-current rounded-sm" />
+        <span className="inline-block w-2 h-2 border-2 border-current rounded-sm" />
+      </span>
+    </span>
+  ),
+  three_in_a_row: (
+    <span className="flex gap-0.5">
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+      <span className="inline-block w-2.5 h-2.5 border-2 border-current rounded-sm" />
+    </span>
+  ),
   bomb: "💣",
   two_stars: "★★",
 };
@@ -107,6 +125,7 @@ interface GameDiceProps {
   disabledNumbers?: (0 | 1 | 2)[];
   disabledTooltip?: string;
   noWildcardsLeft?: boolean;
+  onClear?: () => void;
 }
 
 export function GameDice({
@@ -123,13 +142,24 @@ export function GameDice({
   disabledNumbers,
   disabledTooltip,
   noWildcardsLeft,
+  onClear,
 }: GameDiceProps) {
   return (
     <div className="flex flex-col gap-3">
       {/* Color dice */}
       <div>
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Color
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            Colors
+          </div>
+          {onClear && (
+            <button
+              onClick={onClear}
+              className="text-[10px] text-gray-400 underline hover:text-gray-600 transition-colors"
+            >
+              Clear
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           {colors.map((face, i) => {
@@ -165,7 +195,7 @@ export function GameDice({
       {/* Number dice */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Number
+          Numbers
         </div>
         <div className="flex gap-2">
           {numbers.map((face, i) => {
@@ -199,7 +229,7 @@ export function GameDice({
       {/* Special die */}
       <div>
         <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-          Special Die
+          Special
         </div>
         <div className="flex items-center gap-2.5">
           <Die

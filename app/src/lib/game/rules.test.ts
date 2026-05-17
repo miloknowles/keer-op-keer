@@ -10,7 +10,6 @@ import {
   validateColorNumberPick,
   validateSpecialPick,
   validateBombCells,
-  canPass,
 } from "./rules";
 
 import rawBoard from "@/boards/kok2-standard.json";
@@ -479,29 +478,6 @@ describe("validateSpecialPick — fill", () => {
 
 describe("validateSpecialPick — three_in_a_row", () => {
   it("accepts 3 cells in same row each adjacent to region", () => {
-    // Player has H-S crossed. Cells in row S adjacent to H-S: G-S, I-S
-    // Let's use row P after crossing H-P: adjacent in row P: G-P, I-P
-    const player = makePlayer({ crossed_cells: ["H-P"] });
-    // G-P (pink) and I-P (green) are both adjacent to H-P but different colors — for three_in_a_row color doesn't matter
-    // We need a third cell adjacent to H-P in row P — but H-P has only G-P and I-P in row P
-    // Let's use H-Q region: cross H-Q, then pick 3 cells in row Q
-    // H-Q (pink), adjacent in row Q: G-Q (pink), I-Q
-    const player2 = makePlayer({ crossed_cells: ["H-P", "H-Q"] });
-    // In row Q: G-Q adjacent to H-Q, what's I-Q?
-    const iq = config.cells["I-Q"];
-    if (!iq) return; // skip if I-Q doesn't exist
-    const jq = config.cells["J-Q"];
-    // G-Q is adjacent to H-Q ✓; I-Q needs to be adjacent to H-Q or something in crossed
-    // Actually, each cell needs to be individually adjacent to the crossed region
-    const pick: SpecialPick = {
-      type: "special",
-      cells: ["G-Q", "H-Q", "I-Q"],
-    };
-    // H-Q is already crossed, skip it... Let's pick 3 uncrossed cells in same row each adj to region
-    // Actually H-Q is in crossed_cells so it will fail the "already crossed" check
-    // Let me use a different setup: player has H-R crossed, cells in row R adjacent to H-R: G-R, I-R
-    // We need 3 cells in row R adjacent to H-R: G-R (adj), I-R (adj). Only 2 uncrossed adjacent.
-    // Use a bigger region
     const player3 = makePlayer({
       crossed_cells: ["H-P", "H-Q", "H-R", "H-S", "H-T", "H-U", "H-V"],
     });
@@ -669,32 +645,3 @@ describe("validateSpecialPick — two_stars", () => {
   });
 });
 
-// ─── canPass ────────────────────────────────────────────────────────────────
-
-describe("canPass", () => {
-  it("returns false when a valid move exists", () => {
-    // Roll has green die, 1 die, player is empty — H-P is a valid move
-    const roll: DiceRoll = {
-      colors: ["g", "p", "o"],
-      numbers: ["1", "2", "3"],
-      special: "fill",
-    };
-    const result = canPass(config, roll, makePlayer(), null, true, 1);
-    expect(result).toBe(false);
-  });
-
-  it("returns false when player has a box available", () => {
-    // Even with no valid color+number move, a box lets them use special die
-    const roll: DiceRoll = {
-      colors: ["g", "p", "o"],
-      numbers: ["1", "2", "3"],
-      special: "fill",
-    };
-    const player = makePlayer({
-      crossed_cells: Object.keys(config.cells), // all cells crossed — no valid pick
-      boxes_unlocked: 2,
-      boxes_spent: 0,
-    });
-    expect(canPass(config, roll, player, null, true, 1)).toBe(false);
-  });
-});

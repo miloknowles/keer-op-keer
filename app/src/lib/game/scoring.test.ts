@@ -164,3 +164,56 @@ describe("computeScore — total", () => {
     expect(result.total).toBe(expected);
   });
 });
+
+describe("computeScore — column A bonus", () => {
+  it("awards first-completer column A bonus (first=5) + hearts", () => {
+    const aCells = ["A-P", "A-Q", "A-R", "A-S", "A-T", "A-U", "A-V"];
+    const player = makePlayer({ crossed_cells: aCells, hearts: 3 });
+    const result = computeScore(config, player, [player]);
+    // Column A first = 5, + 3 hearts = 8
+    expect(result.columns["A"]).toBe(8);
+  });
+
+  it("awards subsequent column A bonus (subsequent=3) + hearts to second completer", () => {
+    const aCells = ["A-P", "A-Q", "A-R", "A-S", "A-T", "A-U", "A-V"];
+    const player1 = makePlayer({ id: "p1", crossed_cells: aCells, hearts: 1 });
+    const player2 = makePlayer({
+      id: "p2",
+      crossed_cells: ["H-P", ...aCells],
+      hearts: 2,
+    });
+    const allPlayers = [player1, player2];
+    const score1 = computeScore(config, player1, allPlayers);
+    const score2 = computeScore(config, player2, allPlayers);
+    expect(score1.columns["A"]).toBe(5 + 1); // first(5) + hearts(1)
+    expect(score2.columns["A"]).toBe(3 + 2); // subsequent(3) + hearts(2)
+  });
+});
+
+describe("computeScore — multiple columns", () => {
+  it("includes all completed columns in result and total", () => {
+    const hCells = ["H-P", "H-Q", "H-R", "H-S", "H-T", "H-U", "H-V"];
+    const aCells = ["A-P", "A-Q", "A-R", "A-S", "A-T", "A-U", "A-V"];
+    const player = makePlayer({
+      crossed_cells: [...hCells, ...aCells],
+      hearts: 1,
+    });
+    const result = computeScore(config, player, [player]);
+    // Column H first=2, + 1 heart = 3
+    expect(result.columns["H"]).toBe(3);
+    // Column A first=5, + 1 heart = 6
+    expect(result.columns["A"]).toBe(6);
+    // Both columns contribute to total
+    const colSum = Object.values(result.columns).reduce((a, b) => a + b, 0);
+    expect(colSum).toBeGreaterThanOrEqual(9); // at least H(3) + A(6)
+    expect(result.total).toBe(
+      colSum +
+        Object.values(result.rows).reduce((a, b) => a + b, 0) +
+        Object.values(result.colors as Record<string, number>).reduce(
+          (a, b) => a + b,
+          0,
+        ) +
+        result.stars,
+    );
+  });
+});

@@ -9,12 +9,10 @@ import type {
 import { isColorWildcard, isNumberWildcard } from "./dice";
 import {
   getCell,
-  getAdjacentCells,
   isAdjacentToRegion,
   isValidPlacement,
   getConnectedRegion,
   areCellsContiguous,
-  getBoardColors,
 } from "./sheet";
 
 export type ValidationResult =
@@ -287,90 +285,6 @@ export function validateSpecialPick(
   }
 
   return ok();
-}
-
-// Returns true if it's possible to place `n` contiguous cells of `color`
-// starting from the player's current region. Uses BFS from each candidate
-// starting cell to count reachable same-color uncrossed cells.
-function hasLegalColorNumberMove(
-  config: BoardConfig,
-  color: string,
-  n: number,
-  crossed: string[],
-): boolean {
-  const crossedSet = new Set(crossed);
-  for (const key of Object.keys(config.cells)) {
-    const cell = config.cells[key];
-    if (cell.color !== color || crossedSet.has(key)) continue;
-    if (!isValidPlacement(config, key, crossed)) continue;
-    // BFS through adjacent same-color uncrossed cells from this starting cell
-    const visited = new Set([key]);
-    const queue = [key];
-    while (queue.length > 0 && visited.size < n) {
-      const cur = queue.shift()!;
-      for (const nb of getAdjacentCells(config, cur)) {
-        if (visited.has(nb) || crossedSet.has(nb)) continue;
-        if (config.cells[nb]?.color !== color) continue;
-        visited.add(nb);
-        queue.push(nb);
-      }
-    }
-    if (visited.size >= n) return true;
-  }
-  return false;
-}
-
-// Returns true only when the player has no legal color+number move and no usable special option.
-export function canPass(
-  config: BoardConfig,
-  roll: DiceRoll,
-  player: RoomPlayerRow,
-  activePick: GamePick | null,
-  isActivePlayer: boolean,
-  round: number,
-): boolean {
-  // Special die is unavailable to non-active players in round 3+ when active player used it.
-  const specialAvailable =
-    round < 3 || isActivePlayer || activePick?.type !== "special";
-  if (player.boxes_unlocked - player.boxes_spent >= 1 && specialAvailable) return false;
-
-  const allColors = getBoardColors(config);
-
-  // Try every color×number die combination
-  for (let ci = 0; ci < 3; ci++) {
-    for (let ni = 0; ni < 3; ni++) {
-      const colorFace = roll.colors[ci];
-      const numberFace = roll.numbers[ni];
-      const colorIsWild = isColorWildcard(colorFace);
-      const numberIsWild = isNumberWildcard(numberFace);
-      const wildcardsNeeded = (colorIsWild ? 1 : 0) + (numberIsWild ? 1 : 0);
-      if (wildcardsNeeded > player.wildcards) continue;
-
-      // Apply dice restriction for rounds 3+
-      if (
-        round >= 3 &&
-        !isActivePlayer &&
-        activePick?.type === "color_number"
-      ) {
-        if (ci === activePick.color_die || ni === activePick.number_die)
-          continue;
-      }
-
-      const colorsToTry = colorIsWild ? allColors : [colorFace];
-      const numbersToTry: number[] = numberIsWild
-        ? [1, 2, 3, 4, 5]
-        : [parseInt(numberFace)];
-
-      for (const dc of colorsToTry) {
-        for (const dn of numbersToTry) {
-          if (hasLegalColorNumberMove(config, dc, dn, player.crossed_cells)) {
-            return false;
-          }
-        }
-      }
-    }
-  }
-  return true;
 }
 
 // Returns the set of cells the player can legally click given the current

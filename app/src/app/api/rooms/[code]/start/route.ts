@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 
 export async function POST(
   _req: NextRequest,
