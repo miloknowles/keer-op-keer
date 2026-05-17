@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "boring-avatars";
-import { isRowComplete, isColumnComplete, getConnectedRegion } from "@/lib/game/sheet";
+import {
+  isRowComplete,
+  isColumnComplete,
+  getConnectedRegion,
+} from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
 import { getValidCells } from "@/lib/game/rules";
 import { SEAT_COLORS, COLOR_NAMES } from "@/lib/constants";
@@ -12,6 +16,7 @@ import { ResourceTracks } from "@/components/game/ResourceTracks";
 import { ColorBonuses } from "@/components/game/ColorBonuses";
 import { ChatWindow } from "@/components/game/ChatWindow";
 import { HistoryPanel } from "@/components/game/HistoryPanel";
+import { ScoreDialog } from "@/components/game/ScoreDialog";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
@@ -66,6 +71,7 @@ export default function GamePage() {
   const [selectedSpecial, setSelectedSpecial] = useState(false);
   const [skipConfirming, setSkipConfirming] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [scoresOpen, setScoresOpen] = useState(false);
 
   const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
 
@@ -132,29 +138,36 @@ export default function GamePage() {
     });
   }, [hoveredCell, viewingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dice = useMemo(() => currentHistory
-    ? {
-        colors: currentHistory.dice_colors as [
-          DiceColorFace,
-          DiceColorFace,
-          DiceColorFace,
-        ],
-        numbers: currentHistory.dice_numbers as [
-          DiceNumberFace,
-          DiceNumberFace,
-          DiceNumberFace,
-        ],
-        special: currentHistory.dice_special,
-      }
-    : null,
-  [currentHistory]);
+  const dice = useMemo(
+    () =>
+      currentHistory
+        ? {
+            colors: currentHistory.dice_colors as [
+              DiceColorFace,
+              DiceColorFace,
+              DiceColorFace,
+            ],
+            numbers: currentHistory.dice_numbers as [
+              DiceNumberFace,
+              DiceNumberFace,
+              DiceNumberFace,
+            ],
+            special: currentHistory.dice_special,
+          }
+        : null,
+    [currentHistory],
+  );
 
   const cellCursors = useMemo(() => {
     const result: Record<string, { color: Color; displayName: string }[]> = {};
     for (const p of Object.values(presences)) {
-      if (!p.cursor || p.cursor.boardOwnerId !== viewingId || !p.cursor.cellKey) continue;
+      if (!p.cursor || p.cursor.boardOwnerId !== viewingId || !p.cursor.cellKey)
+        continue;
       const key = p.cursor.cellKey;
-      result[key] = [...(result[key] ?? []), { color: p.color, displayName: p.displayName }];
+      result[key] = [
+        ...(result[key] ?? []),
+        { color: p.color, displayName: p.displayName },
+      ];
     }
     return result;
   }, [presences, viewingId]);
@@ -173,11 +186,15 @@ export default function GamePage() {
   const availableBoxes = effectiveMe.boxes_unlocked - effectiveMe.boxes_spent;
   const openRound = room.round_number < 2;
   const activePick = currentHistory?.active_pick ?? null;
-  const specialTakenByActive = !openRound && !isActivePlayer && activePick?.type === "special";
+  const specialTakenByActive =
+    !openRound && !isActivePlayer && activePick?.type === "special";
   const canUseSpecial = availableBoxes > 0 && !!dice && !specialTakenByActive;
-  const allPicksSubmitted = !!currentHistory &&
+  const allPicksSubmitted =
+    !!currentHistory &&
     !!currentHistory.active_pick &&
-    Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {}).length >= players.length - 1;
+    Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {})
+      .length >=
+      players.length - 1;
   let disabledColorDice: (0 | 1 | 2)[] = (() => {
     if (isActivePlayer || openRound) return [];
     if (!activePick) return [0, 1, 2];
@@ -211,7 +228,16 @@ export default function GamePage() {
       selectedNumber,
       selectedCells,
     );
-  }, [isMyBoard, dice, boardConfig, effectiveMe.crossed_cells, selectedSpecial, selectedColor, selectedNumber, selectedCells]);
+  }, [
+    isMyBoard,
+    dice,
+    boardConfig,
+    effectiveMe.crossed_cells,
+    selectedSpecial,
+    selectedColor,
+    selectedNumber,
+    selectedCells,
+  ]);
 
   const scoring = boardConfig.scoring;
   const { grid } = boardConfig;
@@ -238,37 +264,64 @@ export default function GamePage() {
       if (dice.special === "fill") {
         const cell = boardConfig.cells[key];
         if (!cell) return;
-        if (selectedCells.includes(key)) { setSelectedCells([]); return; }
-        const region = getConnectedRegion(boardConfig, cell.color, key, effectiveMe.crossed_cells as string[]);
+        if (selectedCells.includes(key)) {
+          setSelectedCells([]);
+          return;
+        }
+        const region = getConnectedRegion(
+          boardConfig,
+          cell.color,
+          key,
+          effectiveMe.crossed_cells as string[],
+        );
         setSelectedCells(region);
         return;
       }
 
       if (dice.special === "three_in_a_row") {
-        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.includes(key)) {
+          setSelectedCells((p) => p.filter((k) => k !== key));
+          return;
+        }
         if (selectedCells.length >= 3) return;
-        if (selectedCells.length > 0 && key.split("-")[1] !== selectedCells[0].split("-")[1]) return;
+        if (
+          selectedCells.length > 0 &&
+          key.split("-")[1] !== selectedCells[0].split("-")[1]
+        )
+          return;
         setSelectedCells((p) => [...p, key]);
         return;
       }
 
       if (dice.special === "bomb") {
-        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.includes(key)) {
+          setSelectedCells((p) => p.filter((k) => k !== key));
+          return;
+        }
         if (selectedCells.length >= 4) return;
         const newSel = [...selectedCells, key];
         const idxs = newSel.map((k) => {
           const [col, row] = k.split("-");
-          return [boardConfig.grid.columns.indexOf(col), boardConfig.grid.rows.indexOf(row)] as [number, number];
+          return [
+            boardConfig.grid.columns.indexOf(col),
+            boardConfig.grid.rows.indexOf(row),
+          ] as [number, number];
         });
-        const cSpan = Math.max(...idxs.map(([c]) => c)) - Math.min(...idxs.map(([c]) => c));
-        const rSpan = Math.max(...idxs.map(([, r]) => r)) - Math.min(...idxs.map(([, r]) => r));
+        const cSpan =
+          Math.max(...idxs.map(([c]) => c)) - Math.min(...idxs.map(([c]) => c));
+        const rSpan =
+          Math.max(...idxs.map(([, r]) => r)) -
+          Math.min(...idxs.map(([, r]) => r));
         if (cSpan > 1 || rSpan > 1) return;
         setSelectedCells(newSel);
         return;
       }
 
       if (dice.special === "two_stars") {
-        if (selectedCells.includes(key)) { setSelectedCells((p) => p.filter((k) => k !== key)); return; }
+        if (selectedCells.includes(key)) {
+          setSelectedCells((p) => p.filter((k) => k !== key));
+          return;
+        }
         if (selectedCells.length >= 2) return;
         setSelectedCells((p) => [...p, key]);
         return;
@@ -319,7 +372,9 @@ export default function GamePage() {
   async function handleAdvanceRound() {
     setAdvancing(true);
     try {
-      const res = await fetch(`/api/rooms/${room.code}/advance`, { method: "POST" });
+      const res = await fetch(`/api/rooms/${room.code}/advance`, {
+        method: "POST",
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         toast.error(body.error ?? "Failed to advance round");
@@ -363,17 +418,25 @@ export default function GamePage() {
   }
 
   async function handleConfirmPick() {
-    if (!canConfirm || !dice || selectedColor === undefined || selectedNumber === undefined) return;
+    if (
+      !canConfirm ||
+      !dice ||
+      selectedColor === undefined ||
+      selectedNumber === undefined
+    )
+      return;
     setConfirming(true);
     try {
       const colorFace = dice.colors[selectedColor];
       const numberFace = dice.numbers[selectedNumber];
       // Wildcard color: infer declared_color from first selected cell
-      const declaredColor = colorFace === "✕"
-        ? (boardConfig.cells[selectedCells[0]]?.color ?? colorFace)
-        : colorFace;
+      const declaredColor =
+        colorFace === "✕"
+          ? (boardConfig.cells[selectedCells[0]]?.color ?? colorFace)
+          : colorFace;
       // Wildcard number: declared_number = cell count
-      const declaredNumber = numberFace === "?" ? selectedCells.length : parseInt(numberFace, 10);
+      const declaredNumber =
+        numberFace === "?" ? selectedCells.length : parseInt(numberFace, 10);
 
       const res = await fetch(`/api/rooms/${room.code}/pick`, {
         method: "POST",
@@ -433,7 +496,11 @@ export default function GamePage() {
   }
 
   const canConfirm = useMemo(() => {
-    if (!isMyBoard || selectedColor === undefined || selectedNumber === undefined) {
+    if (
+      !isMyBoard ||
+      selectedColor === undefined ||
+      selectedNumber === undefined
+    ) {
       return false;
     }
     if (!dice) return false;
@@ -450,12 +517,18 @@ export default function GamePage() {
   const canConfirmSpecial = useMemo(() => {
     if (!selectedSpecial || !dice) return false;
     switch (dice.special) {
-      case "heart": return true;
-      case "fill": return selectedCells.length > 0;
-      case "three_in_a_row": return selectedCells.length >= 1 && selectedCells.length <= 3;
-      case "bomb": return selectedCells.length === 4;
-      case "two_stars": return selectedCells.length === 2;
-      default: return false;
+      case "heart":
+        return true;
+      case "fill":
+        return selectedCells.length > 0;
+      case "three_in_a_row":
+        return selectedCells.length >= 1 && selectedCells.length <= 3;
+      case "bomb":
+        return selectedCells.length === 4;
+      case "two_stars":
+        return selectedCells.length === 2;
+      default:
+        return false;
     }
   }, [selectedSpecial, dice, selectedCells]);
 
@@ -464,24 +537,31 @@ export default function GamePage() {
 
     if (selectedSpecial) {
       switch (dice.special) {
-        case "heart": return "Spend 1 box — gain 1 heart";
+        case "heart":
+          return "Spend 1 box — gain 1 heart";
         case "fill":
           return selectedCells.length > 0
             ? "Region selected — click Confirm"
             : "Click a cell to fill its connected color region";
         case "three_in_a_row": {
           const rem = 3 - selectedCells.length;
-          if (selectedCells.length === 0) return "Pick 1–3 adjacent cells in the same row";
-          if (rem > 0) return `Confirm, or pick ${rem} more cell${rem === 1 ? "" : "s"} in the row`;
+          if (selectedCells.length === 0)
+            return "Pick 1–3 adjacent cells in the same row";
+          if (rem > 0)
+            return `Confirm, or pick ${rem} more cell${rem === 1 ? "" : "s"} in the row`;
           return null;
         }
         case "bomb": {
           const rem = 4 - selectedCells.length;
-          return rem > 0 ? `Pick ${rem} more cell${rem === 1 ? "" : "s"} to complete the 2×2` : null;
+          return rem > 0
+            ? `Pick ${rem} more cell${rem === 1 ? "" : "s"} to complete the 2×2`
+            : null;
         }
         case "two_stars": {
           const rem = 2 - selectedCells.length;
-          return rem > 0 ? `Pick ${rem} more star cell${rem === 1 ? "" : "s"}` : null;
+          return rem > 0
+            ? `Pick ${rem} more star cell${rem === 1 ? "" : "s"}`
+            : null;
         }
       }
     }
@@ -509,7 +589,15 @@ export default function GamePage() {
     const remaining = required - selectedCells.length;
     if (remaining === 0) return null;
     return `Pick ${remaining} more ${colorName} square${remaining === 1 ? "" : "s"}`;
-  }, [isMyBoard, dice, selectedSpecial, selectedColor, selectedNumber, selectedCells, boardConfig.cells]);
+  }, [
+    isMyBoard,
+    dice,
+    selectedSpecial,
+    selectedColor,
+    selectedNumber,
+    selectedCells,
+    boardConfig.cells,
+  ]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -527,7 +615,9 @@ export default function GamePage() {
         <div className="flex items-center gap-3 text-sm">
           <span className="text-gray-500">
             Round{" "}
-            <span className="font-bold text-gray-800">{room.round_number + 1}</span>
+            <span className="font-bold text-gray-800">
+              {room.round_number + 1}
+            </span>
           </span>
           {allPicksSubmitted ? (
             <button
@@ -537,12 +627,30 @@ export default function GamePage() {
             >
               {advancing ? "Advancing…" : "Next round"}
               {advancing ? (
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <svg
+                  className="animate-spin"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
                   <circle cx="7" cy="7" r="5" strokeOpacity="0.3" />
                   <path d="M7 2a5 5 0 0 1 5 5" />
                 </svg>
               ) : (
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M2 7h10M8 3l4 4-4 4" />
                 </svg>
               )}
@@ -632,8 +740,16 @@ export default function GamePage() {
         <aside className="w-60 shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
           {/* Players list */}
           <div className="p-4 border-b border-gray-100">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Players
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Players
+              </div>
+              <button
+                onClick={() => setScoresOpen(true)}
+                className="text-xs text-kok-blue font-semibold hover:underline transition-colors"
+              >
+                Show scores
+              </button>
             </div>
             <div className="flex flex-col gap-1">
               {players.map((p) => {
@@ -679,13 +795,27 @@ export default function GamePage() {
                         </span>
                         {pickStatus && pickStatus !== "done" && (
                           <span className="text-[10px] text-gray-400 leading-none">
-                            {pickStatus === "waiting" ? (p.id === me.id ? "Waiting for your pick" : "Waiting for their pick") : "Can't pick yet"}
+                            {pickStatus === "waiting"
+                              ? p.id === me.id
+                                ? "Waiting for your pick"
+                                : "Waiting for their pick"
+                              : "Can't pick yet"}
                           </span>
                         )}
                       </div>
                     </div>
                     {pickStatus === "done" && (
-                      <svg className="shrink-0 text-kok-green" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        className="shrink-0 text-kok-green"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polyline points="2.5,8.5 6,12 13.5,4" />
                       </svg>
                     )}
@@ -721,12 +851,20 @@ export default function GamePage() {
                 selectedSpecial={isMyBoard ? selectedSpecial : undefined}
                 onSelectColor={isMyBoard ? handleColorPick : undefined}
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
-                onSelectSpecial={isMyBoard && canUseSpecial ? handleSpecialSelect : undefined}
+                onSelectSpecial={
+                  isMyBoard && canUseSpecial ? handleSpecialSelect : undefined
+                }
                 disabledColors={isMyBoard ? disabledColorDice : undefined}
                 onClear={isMyBoard ? clearPick : undefined}
                 disabledNumbers={isMyBoard ? disabledNumberDice : undefined}
-                disabledTooltip={activePick ? `${activePlayer?.display_name ?? "Active player"} already picked this` : undefined}
-                noWildcardsLeft={isMyBoard ? effectiveMe.wildcards === 0 : undefined}
+                disabledTooltip={
+                  activePick
+                    ? `${activePlayer?.display_name ?? "Active player"} already picked this`
+                    : undefined
+                }
+                noWildcardsLeft={
+                  isMyBoard ? effectiveMe.wildcards === 0 : undefined
+                }
               />
             ) : effectiveMe.seat_index === room.current_player_index ? (
               <button
@@ -798,8 +936,13 @@ export default function GamePage() {
           {isMyBoard && (
             <div className="p-4 flex flex-col gap-2">
               <button
-                onClick={selectedSpecial ? handleConfirmSpecialPick : handleConfirmPick}
-                disabled={!(selectedSpecial ? canConfirmSpecial : canConfirm) || confirming}
+                onClick={
+                  selectedSpecial ? handleConfirmSpecialPick : handleConfirmPick
+                }
+                disabled={
+                  !(selectedSpecial ? canConfirmSpecial : canConfirm) ||
+                  confirming
+                }
                 className="mt-1 w-full py-2 rounded-lg bg-kok-blue text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
               >
                 {confirming ? "Confirming…" : "Confirm Pick"}
@@ -815,7 +958,16 @@ export default function GamePage() {
               >
                 Skip my turn
               </button>
-              <AlertDialog open={skipConfirming} onOpenChange={setSkipConfirming}>
+              <ScoreDialog
+                open={scoresOpen}
+                onOpenChange={setScoresOpen}
+                players={players}
+                config={boardConfig}
+              />
+              <AlertDialog
+                open={skipConfirming}
+                onOpenChange={setSkipConfirming}
+              >
                 <AlertDialogContent size="sm">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Skip your turn?</AlertDialogTitle>
@@ -824,7 +976,9 @@ export default function GamePage() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel variant="ghost">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel variant="ghost">
+                      Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       variant="destructive"
                       onClick={handleSkipTurn}
