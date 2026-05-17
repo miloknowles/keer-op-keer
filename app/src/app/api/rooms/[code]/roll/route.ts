@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rollDice } from "@/lib/game/dice";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { handleBotRound } from "@/lib/bots/runner";
 
 export async function POST(
   _req: NextRequest,
@@ -72,6 +73,9 @@ export async function POST(
     console.error("[roll] insert failed:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Trigger non-active bot picks after a human rolls
+  after(() => handleBotRound(room.id).catch((e) => console.error("[roll] handleBotRound failed:", e)));
 
   return NextResponse.json({ ok: true });
 }

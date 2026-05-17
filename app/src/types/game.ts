@@ -40,6 +40,8 @@ export interface RoomPlayerRow {
   score: number | null;
   score_breakdown: ScoreBreakdown | null;
   joined_at: string;
+  is_bot: boolean;
+  bot_type: string | null;
 }
 
 export interface RoomBoardRow {

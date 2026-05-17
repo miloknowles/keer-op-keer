@@ -29,6 +29,8 @@ function makePlayer(overrides: Partial<RoomPlayerRow> = {}): RoomPlayerRow {
     score: null,
     score_breakdown: null,
     joined_at: new Date().toISOString(),
+    is_bot: false,
+    bot_type: null,
     ...overrides,
   };
 }

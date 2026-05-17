@@ -9,16 +9,22 @@ interface Props {
   playerId: string;
   players: RoomPlayerRow[];
   onClose?: () => void;
+  open?: boolean;
 }
 
-export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
+export function ChatWindow({ roomId, playerId, players, onClose, open }: Props) {
   const { messages, loading, sendMessage } = useRoomChat(roomId, playerId, true);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
   function handleSend() {
     const trimmed = input.trim();
@@ -133,6 +139,7 @@ export function ChatWindow({ roomId, playerId, players, onClose }: Props) {
 
       <div className="shrink-0 p-2 border-t border-gray-100 flex gap-1.5">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}

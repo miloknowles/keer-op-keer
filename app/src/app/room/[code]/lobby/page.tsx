@@ -33,6 +33,7 @@ export default function LobbyPage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [addingPlayer, setAddingPlayer] = useState(false);
+  const [addingBot, setAddingBot] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleCopy() {
@@ -84,6 +85,16 @@ export default function LobbyPage() {
       method: "DELETE",
     });
     // Realtime DELETE event removes the player from context for everyone
+  }
+
+  async function handleAddBot() {
+    setAddingBot(true);
+    await fetch(`/api/rooms/${room.code}/add-bot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bot_type: "greedy" }),
+    });
+    setAddingBot(false);
   }
 
   async function handleAddTestPlayer() {
@@ -171,6 +182,11 @@ export default function LobbyPage() {
                     <span>✎</span>
                   </button>
                 )}
+                {player.is_bot && (
+                  <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                    BOT
+                  </span>
+                )}
                 {isPlayerHost && (
                   <span className="text-xs font-bold text-kok-orange bg-kok-orange/10 px-2 py-0.5 rounded-full">
                     HOST
@@ -194,6 +210,16 @@ export default function LobbyPage() {
           <p className="text-center text-xs text-gray-400 italic pt-1">
             Share the room code to invite more players
           </p>
+        )}
+
+        {isHost && players.length < MAX_PLAYERS && (
+          <button
+            onClick={handleAddBot}
+            disabled={addingBot}
+            className="w-full mt-1 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 disabled:opacity-40 disabled:pointer-events-none transition-all"
+          >
+            {addingBot ? "Adding…" : "+ Add Bot"}
+          </button>
         )}
 
         {DEV_MULTI_SEAT && (

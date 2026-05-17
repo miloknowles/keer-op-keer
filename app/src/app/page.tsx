@@ -90,7 +90,7 @@ export default function Home() {
             {row.letters.map((char, ci) => (
               <div
                 key={ci}
-                className={`${row.colors[ci]} relative flex w-16 h-16 items-center justify-center rounded-xl text-white font-bold text-3xl shadow-md select-none`}
+                className={`${row.colors[ci]} relative flex w-16 h-16 items-center justify-center rounded-xl text-white font-bold text-3xl shadow-md select-none cursor-default hover:animate-letter-wiggle hover:shadow-xl hover:z-10`}
               >
                 {row.stars[ci] && (
                   <span className="absolute top-1 right-1.5 text-white/70 text-xs leading-none">
