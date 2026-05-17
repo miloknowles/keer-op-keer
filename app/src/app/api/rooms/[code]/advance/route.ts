@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { computeScore } from "@/lib/game/scoring";
+import type { RoomPlayerRow } from "@/types/game";
+import type { BoardConfig } from "@/boards/board.types";
 
 export async function POST(
   _req: NextRequest,
@@ -16,7 +19,7 @@ export async function POST(
 
   const { data: room } = await supabase
     .from("rooms")
-    .select("id, status, current_player_index, round_number")
+    .select("id, status")
     .eq("code", code.toLowerCase())
     .maybeSingle();
   if (!room)
@@ -27,8 +30,6 @@ export async function POST(
       { status: 409 },
     );
 
-  // Must be a player in the room (use count to avoid maybeSingle() failing when
-  // DEV_MULTI_SEAT is on and multiple rows share the same user_id)
   const { count: playerCount } = await supabase
     .from("room_players")
     .select("id", { count: "exact", head: true })
@@ -37,52 +38,45 @@ export async function POST(
   if (!playerCount || playerCount === 0)
     return NextResponse.json({ error: "Not in room" }, { status: 403 });
 
-  // Check all picks are in for this round
-  const { data: history } = await supabase
-    .from("room_history")
-    .select("id, active_pick, player_picks")
-    .eq("room_id", room.id)
-    .eq("round_number", room.round_number)
-    .maybeSingle();
-  if (!history)
-    return NextResponse.json(
-      { error: "No dice rolled for this round yet" },
-      { status: 409 },
-    );
+  const { data: advanceResult, error: advanceErr } = await supabase
+    .rpc("maybe_advance_round", { p_room_id: room.id });
+  if (advanceErr) {
+    console.error("[advance] maybe_advance_round failed:", advanceErr);
+    return NextResponse.json({ error: advanceErr.message }, { status: 500 });
+  }
 
-  const { count: totalPlayers } = await supabase
-    .from("room_players")
-    .select("id", { count: "exact", head: true })
-    .eq("room_id", room.id);
-
-  const nonActiveCount = (totalPlayers ?? 0) - 1;
-  const submittedNonActive = Object.keys(
-    (history.player_picks as Record<string, unknown>) ?? {},
-  ).length;
-  const activeSubmitted = history.active_pick !== null;
-  const allPicksIn = activeSubmitted && submittedNonActive >= nonActiveCount;
-
-  if (!allPicksIn)
+  if (advanceResult === "not_complete")
     return NextResponse.json(
       { error: "Not all players have submitted picks yet" },
       { status: 409 },
     );
 
-  // Conditional update: only advances if round_number hasn't changed since we read it
-  // (guards against double-click / concurrent calls)
-  const { error: roomErr } = await supabase
-    .from("rooms")
-    .update({
-      round_number: room.round_number + 1,
-      current_player_index:
-        (room.current_player_index + 1) % (totalPlayers ?? 1),
-    })
-    .eq("id", room.id)
-    .eq("round_number", room.round_number);
+  if (advanceResult === "already_finished")
+    return NextResponse.json(
+      { error: "Game is not in progress" },
+      { status: 409 },
+    );
 
-  if (roomErr) {
-    console.error("[advance] update failed:", roomErr);
-    return NextResponse.json({ error: roomErr.message }, { status: 500 });
+  if (advanceResult === "game_ends") {
+    const { data: boardRow } = await supabase
+      .from("room_boards")
+      .select("config")
+      .eq("room_id", room.id)
+      .maybeSingle();
+    const config = boardRow?.config as unknown as BoardConfig;
+    const { data: allFull } = await supabase
+      .from("room_players")
+      .select("*")
+      .eq("room_id", room.id);
+    const allFullPlayers = (allFull ?? []) as RoomPlayerRow[];
+    for (const player of allFullPlayers) {
+      const breakdown = computeScore(config, player, allFullPlayers);
+      const { error: scoreErr } = await supabase
+        .from("room_players")
+        .update({ score: breakdown.total, score_breakdown: breakdown })
+        .eq("id", player.id);
+      if (scoreErr) console.error("[advance] write score failed:", scoreErr);
+    }
   }
 
   return NextResponse.json({ ok: true });
