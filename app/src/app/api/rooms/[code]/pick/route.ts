@@ -262,13 +262,17 @@ export async function POST(
           console.error("[pick] write score failed:", scoreErr);
         }
       }
-      await supabase
+      const { error: finishErr } = await supabase
         .from("rooms")
         .update({
           status: "finished",
           finished_at: new Date().toISOString(),
         })
         .eq("id", room.id);
+      if (finishErr) {
+        console.error("[pick] finish game failed:", finishErr);
+        return NextResponse.json({ error: finishErr.message }, { status: 500 });
+      }
     } else {
       // ── 15. Advance to next round ───────────────────────────────────────
       const { error: roomErr } = await supabase
@@ -278,7 +282,8 @@ export async function POST(
           current_player_index:
             (room.current_player_index + 1) % (totalPlayers ?? 1),
         })
-        .eq("id", room.id);
+        .eq("id", room.id)
+        .eq("round_number", room.round_number);
       if (roomErr) {
         console.error("[pick] advance round failed:", roomErr);
         return NextResponse.json(
