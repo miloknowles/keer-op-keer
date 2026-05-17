@@ -24,6 +24,13 @@ When all players have submitted their moves, the game should automatically advan
 - Audit the realtime subscription logic that listens for all-players-submitted and ensure it fires consistently
 - Add a fallback server-side check (e.g. on each move submission, verify if all players are done and force-advance if so)
 
+## Logo does not link to home
+
+Clicking "Keer op Keer 2" in the top-left header should navigate back to the main page (`/`), but currently does nothing.
+
+**Fix options:**
+- Wrap the logo/title in a Next.js `<Link href="/">` component
+
 ## Game ending is untested
 
 The end-of-game flow (triggering game over, computing final scores, displaying results) has no automated test coverage.
