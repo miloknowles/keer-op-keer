@@ -24,6 +24,22 @@ When all players have submitted their moves, the game should automatically advan
 - Audit the realtime subscription logic that listens for all-players-submitted and ensure it fires consistently
 - Add a fallback server-side check (e.g. on each move submission, verify if all players are done and force-advance if so)
 
+## Cannot rejoin an in-progress game
+
+If a player navigates away or refreshes and then tries to re-enter their room code on the homepage, they see a "Game already started" error instead of being taken back to the game. Players who are already in `room_players` should be allowed to rejoin.
+
+**Fix options:**
+- In the `/join` API route, detect that the caller is already a member of the room and redirect them rather than returning an error
+- On the homepage join form, check the user's existing room memberships first and route them directly if a match is found
+
+## No mobile support
+
+The game layout is designed for desktop and does not work on mobile screens. Significant layout restructuring would be needed to support small viewports.
+
+**Fix options:**
+- Enforce desktop-only by showing a "please use a desktop browser" message when the viewport is below a minimum width (e.g. 1024px), blocking access to the game UI
+- Full mobile redesign (large effort)
+
 ## Logo does not link to home
 
 Clicking "Keer op Keer 2" in the top-left header should navigate back to the main page (`/`), but currently does nothing.
