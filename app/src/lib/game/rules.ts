@@ -187,10 +187,12 @@ export function validateSpecialPick(
   const availableBoxes = player.boxes_unlocked - player.boxes_spent;
   if (availableBoxes < 1) return fail("no boxes available");
 
-  // In rounds 3+, non-active players cannot use the special die if the active
-  // player already claimed it.
-  if (round >= 3 && !isActivePlayer && activePick?.type === "special") {
-    return fail("special die already used by active player");
+  // In rounds 3+, non-active players must wait for the active player to pick,
+  // then cannot use the special if the active player already claimed it.
+  if (round >= 3 && !isActivePlayer) {
+    if (activePick === null) return fail("active player has not yet picked");
+    if (activePick.type === "special")
+      return fail("special die already used by active player");
   }
 
   const crossedSet = new Set(player.crossed_cells);

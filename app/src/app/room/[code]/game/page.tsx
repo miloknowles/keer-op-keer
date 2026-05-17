@@ -192,7 +192,11 @@ export default function GamePage() {
   const activePick = currentHistory?.active_pick ?? null;
   const specialTakenByActive =
     !openRound && !isActivePlayer && activePick?.type === "special";
-  const canUseSpecial = availableBoxes > 0 && !!dice && !specialTakenByActive;
+  const canUseSpecial =
+    availableBoxes > 0 &&
+    !!dice &&
+    !specialTakenByActive &&
+    (openRound || isActivePlayer || !!activePick);
   const allPicksSubmitted =
     !!currentHistory &&
     !!currentHistory.active_pick &&
@@ -725,7 +729,7 @@ export default function GamePage() {
               {room.round_number + 1}
             </span>
           </span>
-          {allPicksSubmitted ? (
+          {allPicksSubmitted && room.status !== "finished" ? (
             <button
               onClick={handleAdvanceRound}
               disabled={advancing}
