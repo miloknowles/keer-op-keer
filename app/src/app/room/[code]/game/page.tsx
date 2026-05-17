@@ -6,6 +6,8 @@ import Avatar from "boring-avatars";
 import {
   isRowComplete,
   isColumnComplete,
+  isColorComplete,
+  getBoardColors,
   getConnectedRegion,
 } from "@/lib/game/sheet";
 import { isColorWildcard, isNumberWildcard } from "@/lib/game/dice";
@@ -56,6 +58,7 @@ export default function GamePage() {
   const boardConfig = board.config as unknown as BoardConfig;
 
   const supabase = useRef(createClient()).current;
+  const prevCrossedRef = useRef<string[] | null>(null);
   const [currentHistory, setCurrentHistory] = useState<RoomHistoryRow | null>(
     null,
   );
@@ -224,6 +227,31 @@ export default function GamePage() {
         disabledNumberDice = [...disabledNumberDice, i];
     });
   }
+
+  useEffect(() => {
+    const prev = prevCrossedRef.current;
+    const curr = effectiveMe.crossed_cells as string[];
+
+    if (prev !== null && curr.length > prev.length) {
+      for (const row of boardConfig.grid.rows) {
+        if (!isRowComplete(boardConfig, row, prev) && isRowComplete(boardConfig, row, curr)) {
+          toast.success(`🎉 Row ${row} complete!`);
+        }
+      }
+      for (const col of boardConfig.grid.columns) {
+        if (!isColumnComplete(boardConfig, col, prev) && isColumnComplete(boardConfig, col, curr)) {
+          toast.success(`🎉 Column ${col} complete!`);
+        }
+      }
+      for (const color of getBoardColors(boardConfig)) {
+        if (!isColorComplete(boardConfig, color, prev) && isColorComplete(boardConfig, color, curr)) {
+          toast.success(`🎉 All ${COLOR_NAMES[color]} complete!`);
+        }
+      }
+    }
+
+    prevCrossedRef.current = curr;
+  }, [effectiveMe.crossed_cells]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
