@@ -16,8 +16,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keer op Keer 2 Multiplayer Online",
-  description: "Online multiplayer roll-and-write",
+  title: "Keer op Keer 2 — Online Multiplayer",
+  description:
+    "Play Keer op Keer 2 online with friends. A free roll-and-write multiplayer game.",
+  metadataBase: new URL("https://keer2.vercel.app"),
+  openGraph: {
+    title: "Keer op Keer 2 — Online Multiplayer",
+    description: "Play Keer op Keer 2 online with friends.",
+    url: "https://keer2.vercel.app",
+    siteName: "Keer op Keer 2",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Keer op Keer 2 — Online Multiplayer",
+    description: "Play Keer op Keer 2 online with friends.",
+  },
 };
 
 export default function RootLayout({
