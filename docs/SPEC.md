@@ -49,7 +49,8 @@ Each player's sheet has a row of **9 boxes** at the bottom. Players start with *
 
 **Earning boxes:** Circle the next uncircled box when you:
 - Cross off a cell that has a box icon (!) on it, or
-- Are the first to complete a row whose item is a box
+- Are the first to complete a row whose item is a box, or
+- Complete column H — **every** player who completes column H earns a box, not just the first
 
 **Spending boxes:** On your turn as active player, you may spend 1 box to use the special die instead of picking a color+number pair. Cross off (spend) one of your circled boxes.
 
