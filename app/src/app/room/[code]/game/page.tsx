@@ -611,7 +611,6 @@ export default function GamePage() {
                   heartSize={scoring.heartTrack.size}
                   boxesUnlocked={viewing.boxes_unlocked}
                   boxesSpent={viewing.boxes_spent}
-                  boxSize={scoring.boxTrack.size}
                   wildcards={viewing.wildcards}
                   wildcardStart={scoring.wildcardTrack.starting}
                 />
@@ -712,19 +711,6 @@ export default function GamePage() {
 
           {/* Dice roll */}
           <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Dice Roll
-              </div>
-              {isMyBoard && (
-                <button
-                  onClick={clearPick}
-                  className="text-[10px] text-gray-400 underline hover:text-gray-600 transition-colors"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
             {dice ? (
               <GameDice
                 colors={dice.colors}
@@ -737,8 +723,9 @@ export default function GamePage() {
                 onSelectNumber={isMyBoard ? handleNumberPick : undefined}
                 onSelectSpecial={isMyBoard && canUseSpecial ? handleSpecialSelect : undefined}
                 disabledColors={isMyBoard ? disabledColorDice : undefined}
+                onClear={isMyBoard ? clearPick : undefined}
                 disabledNumbers={isMyBoard ? disabledNumberDice : undefined}
-                disabledTooltip={activePlayer ? `${activePlayer.display_name} already picked this` : undefined}
+                disabledTooltip={activePick ? `${activePlayer?.display_name ?? "Active player"} already picked this` : undefined}
                 noWildcardsLeft={isMyBoard ? effectiveMe.wildcards === 0 : undefined}
               />
             ) : effectiveMe.seat_index === room.current_player_index ? (

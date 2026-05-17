@@ -5,7 +5,6 @@ interface ResourceTracksProps {
   heartSize: number;
   boxesUnlocked: number;
   boxesSpent: number;
-  boxSize: number;
   wildcards: number;
   wildcardStart: number;
 }
@@ -15,7 +14,6 @@ export function ResourceTracks({
   heartSize,
   boxesUnlocked,
   boxesSpent,
-  boxSize,
   wildcards,
   wildcardStart,
 }: ResourceTracksProps) {
@@ -52,20 +50,17 @@ export function ResourceTracks({
           </span>
         </div>
         <div className="flex gap-1">
-          {Array.from({ length: boxSize }).map((_, i) => {
+          {Array.from({ length: boxesUnlocked }).map((_, i) => {
             const spent = i < boxesSpent;
-            const unlocked = i < boxesUnlocked;
             return (
               <div
                 key={i}
                 className={cn(
                   "w-8 h-8 rounded flex items-center justify-center text-sm font-bold",
-                  spent && "bg-amber-700/40 text-amber-900",
-                  !spent && unlocked && "bg-amber-700 text-white",
-                  !unlocked && "bg-amber-100 text-amber-200",
+                  spent ? "bg-amber-700/40 text-amber-900" : "bg-amber-700 text-white",
                 )}
               >
-                {spent ? "✕" : unlocked ? "📦" : ""}
+                {spent ? "✕" : "📦"}
               </div>
             );
           })}
