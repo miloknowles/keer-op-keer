@@ -457,14 +457,26 @@ export function getValidCells(
   const occupiedCells = [...crossed, ...selectedCells];
   const occupiedSet = new Set(occupiedCells);
   const result = new Set<string>();
-  const hasNumberLimit =
-    selectedNumber !== undefined && !isNumberWildcard(declaredNumberFace);
-  const required = hasNumberLimit ? parseInt(declaredNumberFace, 10) : Infinity;
+  const required =
+    selectedNumber === undefined
+      ? Infinity
+      : isNumberWildcard(declaredNumberFace)
+      ? VALID_NUMBER_MAX
+      : parseInt(declaredNumberFace, 10);
   const canSelectMore = selectedCells.length < required;
   for (const [key, cell] of Object.entries(config.cells)) {
     if (occupiedSet.has(key)) continue;
     if (effectiveColor !== undefined && cell.color !== effectiveColor) continue;
     if (!isValidPlacement(config, key, occupiedCells)) continue;
+    // Once cells are selected, only allow cells that keep the selection contiguous
+    // (using same-color crossed cells as bridges). This prevents picking from two
+    // separate regions in one turn.
+    if (
+      selectedCells.length > 0 &&
+      !areCellsContiguousWithBridge(config, [...selectedCells, key], crossed)
+    ) {
+      continue;
+    }
     if (canSelectMore) result.add(key);
   }
   return result;

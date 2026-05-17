@@ -1,28 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSound } from "react-sounds";
 import { createClient } from "@/lib/supabase/client";
 import type { RoomChatRow } from "@/types/game";
 
-function playMessageSound() {
-  try {
-    const ctx = new AudioContext();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.25);
-  } catch {
-    // AudioContext unavailable (e.g. SSR or blocked by browser)
-  }
-}
-
-export function useRoomChat(roomId: string, playerId: string) {
+export function useRoomChat(roomId: string, playerId: string, chatOpen: boolean) {
+  const { play: playMessageSound } = useSound("notification/popup", { volume: 0.5 });
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<RoomChatRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +45,7 @@ export function useRoomChat(roomId: string, playerId: string) {
           setMessages((prev) => [...prev, newMessage]);
           if (newMessage.player_id !== playerId) {
             setUnreadCount((prev) => prev + 1);
-            playMessageSound();
+            if (!chatOpen) playMessageSound();
           }
         },
       )

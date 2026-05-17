@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSound } from "react-sounds";
 import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { NAME_KEY } from "@/lib/utils";
@@ -14,6 +15,17 @@ export default function LobbyPage() {
   const router = useRouter();
   const { room, players, me, isHost } = useRoomContext();
   const supabase = useRef(createClient()).current;
+
+  const { play: playJoinSound } = useSound("system/device_connect", { volume: 0.6 });
+  const prevPlayerCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevPlayerCountRef.current === null) {
+      prevPlayerCountRef.current = players.length;
+      return;
+    }
+    if (players.length > prevPlayerCountRef.current) playJoinSound();
+    prevPlayerCountRef.current = players.length;
+  }, [players.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [copied, setCopied] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

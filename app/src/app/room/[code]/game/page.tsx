@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSound } from "react-sounds";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import {
   isRowComplete,
@@ -45,12 +46,11 @@ import type {
   Color,
 } from "@/types/game";
 
-
 export default function GamePage() {
   const { room, me, players, board } = useRoomContext();
   const boardConfig = board.config as unknown as BoardConfig;
 
-  const prevCrossedRef = useRef<string[] | null>(null);
+  const prevCrossedRef = useRef<Record<string, string[]>>({});
   const currentHistory = useGameHistory(room.id, room.round_number);
 
   const [viewingId, setViewingId] = useState(me.id);
@@ -70,7 +70,11 @@ export default function GamePage() {
   const [gameOverOpen, setGameOverOpen] = useState(room.status === "finished");
   const [rowBombCells, setRowBombCells] = useState<string[]>([]);
 
-  const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id);
+  const { unreadCount, resetUnreadCount } = useRoomChat(room.id, me.id, chatOpen);
+  const { play: playDiceRollSound } = useSound("notification/popup", { volume: 0.6 });
+  const { play: playPickSound } = useSound("notification/completed", { volume: 0.3 });
+  const { play: playCellClickSound } = useSound("ui/button_soft", { volume: 0.4 });
+  const { play: playCompletionSound } = useSound("notification/success", { volume: 0.6 });
 
   useEffect(() => {
     if (chatOpen) {
@@ -175,29 +179,37 @@ export default function GamePage() {
   }
 
   useEffect(() => {
-    const prev = prevCrossedRef.current;
-    const curr = effectiveMe.crossed_cells as string[];
+    let anyComplete = false;
+    for (const player of players) {
+      const prev = prevCrossedRef.current[player.id] ?? null;
+      const curr = player.crossed_cells as string[];
+      const who = player.id === me.id ? "You" : player.display_name;
 
-    if (prev !== null && curr.length > prev.length) {
-      for (const row of boardConfig.grid.rows) {
-        if (!isRowComplete(boardConfig, row, prev) && isRowComplete(boardConfig, row, curr)) {
-          toast.success(`🎉 Row ${row} complete!`);
+      if (prev !== null && curr.length > prev.length) {
+        for (const row of boardConfig.grid.rows) {
+          if (!isRowComplete(boardConfig, row, prev) && isRowComplete(boardConfig, row, curr)) {
+            toast.success(`🎉 ${who} completed row ${row}!`);
+            anyComplete = true;
+          }
+        }
+        for (const col of boardConfig.grid.columns) {
+          if (!isColumnComplete(boardConfig, col, prev) && isColumnComplete(boardConfig, col, curr)) {
+            toast.success(`🎉 ${who} completed column ${col}!`);
+            anyComplete = true;
+          }
+        }
+        for (const color of getBoardColors(boardConfig)) {
+          if (!isColorComplete(boardConfig, color, prev) && isColorComplete(boardConfig, color, curr)) {
+            toast.success(`🎉 ${who} completed all ${COLOR_NAMES[color]}!`);
+            anyComplete = true;
+          }
         }
       }
-      for (const col of boardConfig.grid.columns) {
-        if (!isColumnComplete(boardConfig, col, prev) && isColumnComplete(boardConfig, col, curr)) {
-          toast.success(`🎉 Column ${col} complete!`);
-        }
-      }
-      for (const color of getBoardColors(boardConfig)) {
-        if (!isColorComplete(boardConfig, color, prev) && isColorComplete(boardConfig, color, curr)) {
-          toast.success(`🎉 All ${COLOR_NAMES[color]} complete!`);
-        }
-      }
+
+      prevCrossedRef.current[player.id] = curr;
     }
-
-    prevCrossedRef.current = curr;
-  }, [effectiveMe.crossed_cells]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (anyComplete) playCompletionSound();
+  }, [players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validCells = useMemo<Set<string> | undefined>(() => {
     if (!isMyBoard || !dice) return undefined;
@@ -260,6 +272,7 @@ export default function GamePage() {
 
   function handleCellClick(key: string) {
     if (!isMyBoard) return;
+    playCellClickSound();
 
     // Row-bomb placement mode: main pick is ready and completed a bomb row.
     // Direct further clicks to selecting the 2×2 bomb cells.
@@ -390,9 +403,26 @@ export default function GamePage() {
     if (room.status === "finished") setGameOverOpen(true);
   }, [room.status]);
 
+  const prevPickCountRef = useRef(0);
   useEffect(() => {
-    if (dice) setRolling(false);
-  }, [dice]);
+    if (!currentHistory) return;
+    const count =
+      (currentHistory.active_pick ? 1 : 0) +
+      Object.keys((currentHistory.player_picks as Record<string, unknown>) ?? {}).length;
+    if (count > prevPickCountRef.current) playPickSound();
+    prevPickCountRef.current = count;
+  }, [currentHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const prevDiceNullRef = useRef(true);
+  useEffect(() => {
+    if (dice) {
+      setRolling(false);
+      if (prevDiceNullRef.current) playDiceRollSound();
+      prevDiceNullRef.current = false;
+    } else {
+      prevDiceNullRef.current = true;
+    }
+  }, [dice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleRoll() {
     setRolling(true);

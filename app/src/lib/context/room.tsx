@@ -165,6 +165,18 @@ export function RoomProvider({
           }
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "room_boards",
+          filter: `room_id=eq.${room.id}`,
+        },
+        (payload) => {
+          setBoard(payload.new as RoomBoardRow);
+        },
+      )
       .subscribe();
 
     return () => {
