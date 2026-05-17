@@ -10,7 +10,6 @@ import {
   validateColorNumberPick,
   validateSpecialPick,
   validateBombCells,
-  canPass,
 } from "./rules";
 
 import rawBoard from "@/boards/kok2-standard.json";
@@ -669,32 +668,3 @@ describe("validateSpecialPick — two_stars", () => {
   });
 });
 
-// ─── canPass ────────────────────────────────────────────────────────────────
-
-describe("canPass", () => {
-  it("returns false when a valid move exists", () => {
-    // Roll has green die, 1 die, player is empty — H-P is a valid move
-    const roll: DiceRoll = {
-      colors: ["g", "p", "o"],
-      numbers: ["1", "2", "3"],
-      special: "fill",
-    };
-    const result = canPass(config, roll, makePlayer(), null, true, 1);
-    expect(result).toBe(false);
-  });
-
-  it("returns false when player has a box available", () => {
-    // Even with no valid color+number move, a box lets them use special die
-    const roll: DiceRoll = {
-      colors: ["g", "p", "o"],
-      numbers: ["1", "2", "3"],
-      special: "fill",
-    };
-    const player = makePlayer({
-      crossed_cells: Object.keys(config.cells), // all cells crossed — no valid pick
-      boxes_unlocked: 2,
-      boxes_spent: 0,
-    });
-    expect(canPass(config, roll, player, null, true, 1)).toBe(false);
-  });
-});

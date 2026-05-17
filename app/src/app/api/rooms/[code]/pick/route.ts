@@ -4,7 +4,6 @@ import { DEV_MULTI_SEAT } from "@/lib/devFlags";
 import {
   validateColorNumberPick,
   validateSpecialPick,
-  canPass,
 } from "@/lib/game/rules";
 import { colorsCompleted } from "@/lib/game/sheet";
 import { computePickResult } from "@/lib/game/effects";
@@ -152,19 +151,7 @@ export async function POST(
     if (!result.valid)
       return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (pick.type === "pass") {
-    const canPassNow = canPass(
-      config,
-      roll,
-      playerRow,
-      activePick,
-      isActivePlayer,
-      room.round_number,
-    );
-    if (!canPassNow)
-      return NextResponse.json(
-        { error: "Cannot pass — a legal move exists" },
-        { status: 400 },
-      );
+    // Players may always pass — no legal-move check enforced.
   } else {
     return NextResponse.json({ error: "Unknown pick type" }, { status: 400 });
   }
