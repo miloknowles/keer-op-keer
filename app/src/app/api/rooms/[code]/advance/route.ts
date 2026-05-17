@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { computeScore } from "@/lib/game/scoring";
 import type { RoomPlayerRow } from "@/types/game";
 import type { BoardConfig } from "@/boards/board.types";
+import { handleBotRound } from "@/lib/bots/runner";
 
 export async function POST(
   _req: NextRequest,
@@ -56,6 +57,11 @@ export async function POST(
       { error: "Game is not in progress" },
       { status: 409 },
     );
+
+  // Trigger bot round after advance (handles active bot auto-roll + all non-active bot picks)
+  if (advanceResult === "advanced") {
+    handleBotRound(room.id).catch((e) => console.error("[advance] handleBotRound failed:", e));
+  }
 
   if (advanceResult === "game_ends") {
     const { data: boardRow } = await supabase

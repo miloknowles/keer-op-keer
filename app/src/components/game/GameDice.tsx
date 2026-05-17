@@ -42,7 +42,7 @@ const SPECIAL_LABEL: Record<DiceSpecialFace, React.ReactNode> = {
     </span>
   ),
   bomb: "💣",
-  two_stars: "★★",
+  two_stars: <span className="text-base">★★</span>,
 };
 
 const COLOR_FACE_TEXT: Record<DiceColorFace, string> = {
@@ -230,6 +230,7 @@ export function GameDice({
             selected={selectedSpecial}
             onClick={onSelectSpecial}
           >
+            <span className="absolute top-0.5 right-1 text-xs leading-none opacity-60">📦</span>
             {SPECIAL_LABEL[special]}
           </Die>
           <span className="text-xs text-gray-500 leading-snug">
