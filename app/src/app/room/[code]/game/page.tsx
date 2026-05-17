@@ -22,7 +22,7 @@ import { useRoomContext } from "@/lib/context/room";
 import { createClient } from "@/lib/supabase/client";
 import { usePresence } from "@/hooks/use-presence";
 import { useRoomChat } from "@/hooks/use-room-chat";
-import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { DEV_MULTI_SEAT, DEV_ADMIN_BOARD } from "@/lib/devFlags";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -612,6 +612,17 @@ export default function GamePage() {
           <span className="font-mono font-bold text-gray-600 tracking-widest text-sm">
             {room.code.toUpperCase()}
           </span>
+          {DEV_ADMIN_BOARD && (
+            <>
+              <span className="text-gray-300">|</span>
+              <Link
+                href={`/room/${room.code}/admin`}
+                className="text-xs font-semibold text-kok-orange hover:underline"
+              >
+                Admin
+              </Link>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-gray-500">
