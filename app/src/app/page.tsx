@@ -74,7 +74,7 @@ export default function Home() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Something went wrong");
-      router.push(`/room/${trimmedCode}/lobby`);
+      router.push(`/room/${trimmedCode}`);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);

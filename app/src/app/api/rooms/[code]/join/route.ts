@@ -35,14 +35,7 @@ export async function POST(
       { error: "Room not found. Make sure your code is valid." },
       { status: 404 },
     );
-  if (room.status !== "lobby") {
-    return NextResponse.json(
-      { error: "Game already started" },
-      { status: 409 },
-    );
-  }
-
-  // Idempotent: return existing player_id if already a member (unless DEV_MULTI_SEAT)
+  // Idempotent: existing members can always rejoin regardless of room status.
   const { data: existing } = await supabase
     .from("room_players")
     .select("id")
@@ -50,6 +43,13 @@ export async function POST(
     .eq("user_id", user.id)
     .maybeSingle();
   if (existing && !DEV_MULTI_SEAT) return NextResponse.json({ player_id: existing.id });
+
+  if (room.status !== "lobby") {
+    return NextResponse.json(
+      { error: "Game already started" },
+      { status: 409 },
+    );
+  }
 
   // Count check
   const { count } = await supabase

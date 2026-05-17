@@ -47,6 +47,14 @@ Clicking "Keer op Keer 2" in the top-left header should navigate back to the mai
 **Fix options:**
 - Wrap the logo/title in a Next.js `<Link href="/">` component
 
+## More than 6 players is untested
+
+The game has not been tested with more than 6 players in a room. Behavior beyond this limit is unknown — the UI, game logic, and database may not handle it correctly.
+
+**Fix options:**
+- Enforce a hard cap of 6 players in the `/join` API route and surface a clear error message
+- Test and validate the full game flow with 7+ players if higher limits are desired
+
 ## Game ending is untested
 
 The end-of-game flow (triggering game over, computing final scores, displaying results) has no automated test coverage.
