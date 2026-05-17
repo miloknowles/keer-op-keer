@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { computeScore } from "@/lib/game/scoring";
 import type { RoomPlayerRow } from "@/types/game";
@@ -60,7 +60,7 @@ export async function POST(
 
   // Trigger bot round after advance (handles active bot auto-roll + all non-active bot picks)
   if (advanceResult === "advanced") {
-    handleBotRound(room.id).catch((e) => console.error("[advance] handleBotRound failed:", e));
+    after(() => handleBotRound(room.id).catch((e) => console.error("[advance] handleBotRound failed:", e)));
   }
 
   if (advanceResult === "game_ends") {
