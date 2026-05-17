@@ -32,7 +32,7 @@ export function ResourceTracks({
                 "w-8 h-8 rounded-full flex items-center justify-center text-base",
                 i < hearts
                   ? "bg-red-500 text-white"
-                  : "bg-gray-100 border border-gray-300 text-gray-300",
+                  : "bg-gray-100 border border-gray-200 opacity-30",
               )}
             >
               ❤️
