@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_MULTI_SEAT } from "@/lib/devFlags";
+import { handleBotRound } from "@/lib/bots/runner";
 import {
   validateColorNumberPick,
   validateSpecialPick,
@@ -226,6 +227,12 @@ export async function POST(
         .eq("id", player.id);
       if (scoreErr) console.error("[pick] write score failed:", scoreErr);
     }
+  }
+
+  // When the round auto-advances, trigger any bots that need to act in the new round.
+  // `after` (Next.js 15) runs after the response is sent and is tracked by the runtime.
+  if (advanceResult === "advanced") {
+    after(() => handleBotRound(room.id).catch((e) => console.error("[pick] handleBotRound failed:", e)));
   }
 
   return NextResponse.json({ ok: true });
